@@ -1,0 +1,38 @@
+<div
+    class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex items-center gap-2">
+    <div class="relative flex-1">
+        <!-- Sin [disabled]; lo maneja el FormControl -->
+        <input
+            class="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+            placeholder="Buscar factura por número DTE..." [formControl]="searchControl" type="text" />
+
+        <div *ngIf="isLoading"
+            class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin">
+        </div>
+    </div>
+
+    <button class="px-3 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700"
+        (click)="registrarFacturaClick.emit()">
+        Registrar factura
+    </button>
+
+    <button *ngIf="!ocultarBotonLiquidar"
+        class="px-3 py-2 text-sm rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
+        (click)="liquidarClick.emit()">
+        Liquidar
+    </button>
+
+    <button
+        class="px-3 py-2 text-sm rounded-md bg-gray-100 dark:bg-gray-700 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600"
+        (click)="limpiar()">
+        Limpiar
+    </button>
+
+    <span *ngIf="estadoLiquidacion" class="ml-2 text-xs px-2 py-1 rounded-md" [ngClass]="{
+      'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300': estadoLiquidacion==='Pendiente',
+      'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300': estadoLiquidacion==='En Revisión',
+      'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300': estadoLiquidacion==='Liquidado'
+    }">
+        {{ estadoLiquidacion }}
+    </span>
+</div>

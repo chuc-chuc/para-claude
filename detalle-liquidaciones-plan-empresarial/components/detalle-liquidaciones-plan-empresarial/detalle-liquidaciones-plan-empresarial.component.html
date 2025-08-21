@@ -1,0 +1,34 @@
+<!-- components/detalle-liquidaciones-plan-empresarial/detalle-liquidaciones-plan-empresarial.component.html -->
+<section class="w-full space-y-4">
+
+    <!-- Tabla detalle -->
+    <app-tabla-detalle-liquidizacion [factura]="factura" [detalles]="detalles" [agencias]="agencias"
+        [tiposPago]="tiposPago" [habilitarAcciones]="habilitarAcciones && !isSaving" (agregar)="onAgregar()"
+        (editar)="onEditar($event)" (eliminar)="onEliminar($event)" (copiar)="onCopiar($event)"
+        (guardarTodo)="onGuardarTodo()" (cambiarFormaPago)="onCambiarFormaPago($event)">
+    </app-tabla-detalle-liquidizacion>
+
+    <!-- Resumen -->
+    <app-resumen-liquidacion [count]="detalles.length || 0" [total]="total" [montoFactura]="montoFactura"
+        [estadoMonto]="estadoMonto">
+    </app-resumen-liquidacion>
+
+    <!-- Modal agregar/editar detalle -->
+    <app-modal-detalle-liquidizacion *ngIf="mostrarModalDetalle()" [visible]="mostrarModalDetalle()"
+        [modo]="modoModal()" [registro]="registroEnEdicion" [agencias]="agencias" [tiposPago]="tiposPago"
+        [factura]="factura" (guardar)="onGuardarDesdeModal($event)" (cancelar)="onCancelarModal()">
+    </app-modal-detalle-liquidizacion>
+
+    <!-- Modal confirmar eliminación -->
+    <app-modal-confirmar-eliminacion *ngIf="mostrarModalEliminar()" [titulo]="'Confirmar eliminación'"
+        [mensaje]="'¿Está seguro(a) de eliminar este detalle? Esta acción no se puede deshacer.'"
+        (confirmar)="onConfirmarEliminar()" (cancelar)="onCancelarEliminar()">
+    </app-modal-confirmar-eliminacion>
+
+    <!-- Indicador de guardado (opcional) -->
+    <div *ngIf="isSaving"
+        class="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2">
+        <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+        <span class="text-sm">Guardando...</span>
+    </div>
+</section>
