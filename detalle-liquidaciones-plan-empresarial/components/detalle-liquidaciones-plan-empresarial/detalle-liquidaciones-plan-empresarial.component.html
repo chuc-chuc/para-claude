@@ -1,87 +1,9 @@
-<!-- components/detalle-liquidaciones-plan-empresarial/detalle-liquidaciones-plan-empresarial.component.html -->
-<section class="w-full space-y-4">
-
-    <!-- Toolbar de búsqueda y acciones -->
-    <app-toolbar-liquidacion [isLoading]="isLoading" [estadoLiquidacion]="estadoLiquidacion"
-        [ocultarBotonLiquidar]="ocultarBotonLiquidar" [searchText]="searchText" (buscarDTE)="onBuscarDTE($event)"
-        (liquidarClick)="onLiquidar()" (registrarFacturaClick)="onRegistrarFactura()" (limpiarClick)="onLimpiar()">
-    </app-toolbar-liquidacion>
-
-    <!-- Información de la factura (si existe) -->
-    <div *ngIf="hayFactura"
-        class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-                <span class="text-sm text-gray-500 dark:text-gray-400">Factura:</span>
-                <p class="font-medium text-gray-900 dark:text-white">{{ factura?.numero_dte }}</p>
-            </div>
-            <div>
-                <span class="text-sm text-gray-500 dark:text-gray-400">Emisor:</span>
-                <p class="font-medium text-gray-900 dark:text-white truncate" [title]="factura?.nombre_emisor">
-                    {{ factura?.nombre_emisor }}
-                </p>
-            </div>
-            <div>
-                <span class="text-sm text-gray-500 dark:text-gray-400">Monto:</span>
-                <p class="font-medium text-gray-900 dark:text-white">
-                    {{ factura?.moneda === 'USD' ? '$' : 'Q' }}{{ factura?.monto_total | number:'1.2-2' }}
-                </p>
-            </div>
-            <div>
-                <span class="text-sm text-gray-500 dark:text-gray-400">Estado:</span>
-                <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium" [ngClass]="{
-                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300': estadoLiquidacion === 'Pendiente',
-                        'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300': estadoLiquidacion === 'En Revisión',
-                        'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300': estadoLiquidacion === 'Liquidado'
-                    }">
-                    {{ estadoLiquidacion || 'Pendiente' }}
-                </span>
-            </div>
-        </div>
-
-        <!-- Información adicional de la factura -->
-        <div
-            class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-                <span class="text-gray-500 dark:text-gray-400">Fecha emisión:</span>
-                <span class="ml-2 text-gray-900 dark:text-white">{{ factura?.fecha_emision | date:'shortDate' }}</span>
-            </div>
-            <div>
-                <span class="text-gray-500 dark:text-gray-400">Tipo DTE:</span>
-                <span class="ml-2 text-gray-900 dark:text-white">{{ factura?.tipo_dte }}</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Mensaje cuando no hay factura -->
-    <div *ngIf="!hayFactura && !isLoading"
-        class="bg-gray-50 dark:bg-gray-700 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 p-8 text-center">
-        <div class="flex flex-col items-center">
-            <svg class="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor"
-                viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                </path>
-            </svg>
-            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Sin factura seleccionada</h3>
-            <p class="text-gray-500 dark:text-gray-400 mb-4">
-                Busque una factura usando el campo de búsqueda superior para comenzar a trabajar con liquidaciones.
-            </p>
-            <button (click)="onRegistrarFactura()"
-                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                </svg>
-                Registrar nueva factura
-            </button>
-        </div>
-    </div>
-
-    <!-- Tabla detalle -->
+<section class="w-full space-y-4 mt-2">
+    <!-- Tabla de liquidaciones -->
     <app-tabla-detalle-liquidizacion [factura]="factura" [detalles]="detalles" [agencias]="agencias"
-        [tiposPago]="tiposPago" [habilitarAcciones]="puedeAgregar" (agregar)="onAgregar()" (editar)="onEditar($event)"
-        (eliminar)="onEliminar($event)" (copiar)="onCopiar($event)" (guardarTodo)="onGuardarTodo()"
-        (cambiarFormaPago)="onCambiarFormaPago($event)">
+        [tiposPago]="tiposPago" [habilitarAcciones]="habilitarAcciones && !isSaving" (agregar)="onAgregar()"
+        (editar)="onEditar($event)" (eliminar)="onEliminar($event)" (copiar)="onCopiar($event)"
+        (guardarTodo)="onGuardarTodo()" (cambiarFormaPago)="onCambiarFormaPago($event)">
     </app-tabla-detalle-liquidizacion>
 
     <!-- Resumen -->
@@ -89,49 +11,12 @@
         [estadoMonto]="estadoMonto">
     </app-resumen-liquidacion>
 
-    <!-- Estado de monto detallado (opcional) -->
-    <div *ngIf="hayFactura" class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center space-x-4">
-                <div class="text-sm text-gray-600 dark:text-gray-300">
-                    <span class="font-medium">{{ detalles.length }}</span>
-                    {{ detalles.length === 1 ? 'detalle' : 'detalles' }}
-                </div>
-                <div class="text-sm text-gray-600 dark:text-gray-300">
-                    Total: <span class="font-semibold text-gray-900 dark:text-white">Q{{ total | number:'1.2-2'
-                        }}</span>
-                </div>
-            </div>
-
-            <div class="flex items-center space-x-2">
-                <span class="text-sm text-gray-600 dark:text-gray-300">{{ textoEstadoMonto }}</span>
-                <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium" [ngClass]="{
-                        'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300': estadoMonto === 'completo',
-                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300': estadoMonto === 'incompleto',
-                        'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300': estadoMonto === 'excedido'
-                    }">
-                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path *ngIf="estadoMonto === 'completo'" stroke-linecap="round" stroke-linejoin="round"
-                            stroke-width="2" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        <path *ngIf="estadoMonto === 'incompleto'" stroke-linecap="round" stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                        <path *ngIf="estadoMonto === 'excedido'" stroke-linecap="round" stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                    </svg>
-                    {{ estadoMonto | titlecase }}
-                </span>
-            </div>
-        </div>
-    </div>
-
     <!-- Modal agregar/editar detalle -->
     <app-modal-detalle-liquidizacion *ngIf="mostrarModalDetalle()" [visible]="mostrarModalDetalle()"
-        [modo]="modoModal()" [registro]="registroEnEdicion" [agencias]="agencias"
-        [factura]="factura" [facturaActualId]="obtenerFacturaActualId()"
-        [totalMontoRegistros]="obtenerTotalMontoRegistros()" [ordenesAutorizadas]="ordenesAutorizadas"
-        (guardar)="onGuardarDesdeModal($event)" (cancelar)="onCancelarModal()">
+        [modo]="modoModal()" [registro]="registroEnEdicion" [factura]="factura"
+        [facturaActualId]="obtenerFacturaActualId()" [totalMontoRegistros]="obtenerTotalMontoRegistros()"
+        (guardar)="onGuardarDesdeModal($event)"
+        (cancelar)="onCancelarModal()">
     </app-modal-detalle-liquidizacion>
 
     <!-- Modal confirmar eliminación -->
@@ -140,7 +25,7 @@
         (confirmar)="onConfirmarEliminar()" (cancelar)="onCancelarEliminar()">
     </app-modal-confirmar-eliminacion>
 
-    <!-- Indicador de carga global -->
+    <!-- Indicadores -->
     <div *ngIf="isLoading" class="fixed inset-0 bg-black/20 flex items-center justify-center z-40">
         <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-xl">
             <div class="flex items-center space-x-3">
@@ -150,25 +35,9 @@
         </div>
     </div>
 
-    <!-- Indicador de guardado -->
     <div *ngIf="isSaving"
         class="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2 z-50">
         <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
         <span class="text-sm">Guardando cambios...</span>
     </div>
-
-    <!-- Debug panel (solo en desarrollo) -->
-    <div *ngIf="false" class="fixed bottom-4 left-4 bg-gray-900 text-white text-xs p-3 rounded-lg max-w-sm z-50">
-        <div class="font-medium mb-2">Debug Info:</div>
-        <div>Factura: {{ !!factura }}</div>
-        <div>Detalles: {{ detalles.length }}</div>
-        <div>Total: Q{{ total | number:'1.2-2' }}</div>
-        <div>Estado: {{ estadoMonto }}</div>
-        <div>Loading: {{ isLoading }}</div>
-        <div>Saving: {{ isSaving }}</div>
-        <button (click)="debug()" class="mt-2 px-2 py-1 bg-gray-700 rounded text-xs">
-            Log Estado
-        </button>
-    </div>
-
 </section>

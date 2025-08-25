@@ -38,7 +38,8 @@
                         </span>
 
                         <!-- Badge de monto pendiente -->
-                        <span *ngIf="factura" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" [ngClass]="{
+                        <span *ngIf="factura" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                            [ngClass]="{
                                 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300': calcularMontoPendiente() > 0,
                                 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300': calcularMontoPendiente() <= 0
                             }">
@@ -60,30 +61,34 @@
         <!-- Contenido principal con scroll -->
         <div class="p-5 overflow-y-auto max-h-[calc(90vh-120px)]">
             <!-- Indicador de carga -->
-            <div *ngIf="cargandoDatos" class="flex justify-center items-center p-8">
+            <div *ngIf="cargandoDatos || cargandoOrdenes || cargandoAgencias"
+                class="flex justify-center items-center p-8">
                 <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                 <span class="ml-3 text-gray-600 dark:text-gray-300">Cargando datos...</span>
             </div>
 
             <!-- Formulario principal -->
-            <form [formGroup]="formularioPrincipal" class="space-y-4" *ngIf="!cargandoDatos">
+            <form [formGroup]="formularioPrincipal" class="space-y-4"
+                *ngIf="!cargandoDatos && !cargandoOrdenes && !cargandoAgencias">
 
                 <!-- Número de orden y forma de pago -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Número de orden -->
+                    <!-- Número de orden con ng-select -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Número de Orden <span class="text-red-500">*</span>
                         </label>
-                        <select formControlName="numero_orden"
-                            class="w-full text-sm border rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                            [ngClass]="{'border-red-300 dark:border-red-500': campoInvalido('numero_orden')}">
-                            <option value="" disabled>Seleccionar orden...</option>
-                            <option *ngFor="let orden of ordenesCompradas; trackBy: trackByOrden"
+                        <ng-select formControlName="numero_orden" placeholder="Seleccionar orden..." [searchable]="true"
+                            [clearable]="true" bindLabel="displayText" bindValue="numero_orden" class="custom-ng-select"
+                            [ngClass]="{'is-invalid': campoInvalido('numero_orden')}">
+                            <ng-option *ngFor="let orden of ordenesCompradas; trackBy: trackByOrden"
                                 [value]="orden.numero_orden">
-                                {{ orden.numero_orden }} - Q{{ orden.total | number:'1.2-2' }}
-                            </option>
-                        </select>
+                                <span class="flex justify-between items-center w-full">
+                                    <span>Orden #{{ orden.numero_orden }} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+                                    <span class="text-sm text-gray-500">Q{{ orden.total | number:'1.2-2' }}</span>
+                                </span>
+                            </ng-option>
+                        </ng-select>
                         <div *ngIf="campoInvalido('numero_orden')" class="text-red-500 text-xs mt-1">
                             {{ obtenerErrorMensaje('numero_orden') }}
                         </div>
@@ -95,8 +100,9 @@
                             Forma de pago <span class="text-red-500">*</span>
                         </label>
                         <select formControlName="forma_pago"
-                            class="w-full text-sm border rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                            class="w-full text-sm border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
                             [ngClass]="{'border-red-300 dark:border-red-500': campoInvalido('forma_pago')}">
+                            <option value="" disabled>Seleccionar forma de pago...</option>
                             <option *ngFor="let tipo of tiposPago; trackBy: trackByTipoPago" [value]="tipo.id">
                                 {{ tipo.nombre }}
                                 <span *ngIf="tipo.requiere_formulario"> (Formulario específico)</span>
@@ -109,22 +115,20 @@
                 </div>
 
                 <!-- Agencia y Monto -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Agencia -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <!-- Agencia con ng-select -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Agencia <span class="text-red-500">*</span>
                         </label>
-                        <select formControlName="agencia"
-                            class="w-full text-sm border rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                            [ngClass]="{'border-red-300 dark:border-red-500': campoInvalido('agencia')}">
-                            <option value="" disabled>Seleccionar agencia...</option>
-                            <option *ngFor="let agencia of agencias; trackBy: trackByAgencia"
-                                [value]="agencia.nombre || agencia">
-                                {{ agencia.nombre || agencia }}
-                                <span *ngIf="agencia.codigo"> ({{ agencia.codigo }})</span>
-                            </option>
-                        </select>
+                        <ng-select formControlName="agencia" placeholder="Seleccionar agencia..." [searchable]="true"
+                            [clearable]="true" bindLabel="nombre_liquidacion" bindValue="nombre_liquidacion"
+                            class="custom-ng-select" [ngClass]="{'is-invalid': campoInvalido('agencia')}">
+                            <ng-option *ngFor="let agencia of agenciasDisponibles; trackBy: trackByAgencia"
+                                [value]="agencia.nombre_liquidacion">
+                                {{ agencia.nombre_liquidacion }}
+                            </ng-option>
+                        </ng-select>
                         <div *ngIf="campoInvalido('agencia')" class="text-red-500 text-xs mt-1">
                             {{ obtenerErrorMensaje('agencia') }}
                         </div>
@@ -139,7 +143,7 @@
                             <span
                                 class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 dark:text-gray-400">Q</span>
                             <input type="number" step="0.01" min="0.01" formControlName="monto" placeholder="0.00"
-                                class="w-full text-sm border rounded-md py-2 pl-8 pr-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                                class="w-full text-sm border rounded-md py-1 pl-8 pr-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
                                 [ngClass]="{'border-red-300 dark:border-red-500': campoInvalido('monto')}">
                         </div>
                         <div *ngIf="campoInvalido('monto')" class="text-red-500 text-xs mt-1">
@@ -193,32 +197,6 @@
                     </div>
                 </div>
 
-                <!-- Campos básicos para tipos simples -->
-                <div *ngIf="!requiereFormularioEspecifico() && formularioPrincipal.get('forma_pago')?.value && 
-                           ['deposito', 'transferencia'].includes(formularioPrincipal.get('forma_pago')?.value)"
-                    class="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
-
-                    <!-- Banco -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Banco</label>
-                        <select formControlName="banco"
-                            class="w-full text-sm border rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600">
-                            <option value="">Seleccionar banco</option>
-                            <option *ngFor="let banco of listaBancos" [value]="banco.nombre">
-                                {{ banco.nombre }}
-                            </option>
-                        </select>
-                    </div>
-
-                    <!-- No. cuenta -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">No.
-                            cuenta</label>
-                        <input type="text" formControlName="cuenta" placeholder="Número de cuenta"
-                            class="w-full text-sm border rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600">
-                    </div>
-                </div>
-
             </form>
 
             <!-- FORMULARIOS ESPECÍFICOS POR TIPO DE PAGO -->
@@ -235,7 +213,7 @@
                             descripcion: formularioPrincipal.get('descripcion')?.value,
                             monto: formularioPrincipal.get('monto')?.value,
                             correo_proveedor: formularioPrincipal.get('correo_proveedor')?.value
-                        }" [agencias]="agencias" (guardar)="onGuardarDesdeForm($event)"
+                        }" [agencias]="agenciasDisponibles" (guardar)="onGuardarDesdeForm($event)"
                         (cancelar)="onCancelarFormEspecifico()">
                     </app-pago-deposito-form>
 
@@ -245,7 +223,7 @@
                             descripcion: formularioPrincipal.get('descripcion')?.value,
                             monto: formularioPrincipal.get('monto')?.value,
                             correo_proveedor: formularioPrincipal.get('correo_proveedor')?.value
-                        }" [agencias]="agencias" (guardar)="onGuardarDesdeForm($event)"
+                        }" [agencias]="agenciasDisponibles" (guardar)="onGuardarDesdeForm($event)"
                         (cancelar)="onCancelarFormEspecifico()">
                     </app-pago-transferencia-form>
 
@@ -255,7 +233,7 @@
                             descripcion: formularioPrincipal.get('descripcion')?.value,
                             monto: formularioPrincipal.get('monto')?.value,
                             correo_proveedor: formularioPrincipal.get('correo_proveedor')?.value
-                        }" [agencias]="agencias" (guardar)="onGuardarDesdeForm($event)"
+                        }" [agencias]="agenciasDisponibles" (guardar)="onGuardarDesdeForm($event)"
                         (cancelar)="onCancelarFormEspecifico()">
                     </app-pago-cheque-form>
 
