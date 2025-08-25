@@ -1,4 +1,3 @@
-// components/plan-empresarial-container/plan-empresarial-container.component.ts
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, OnDestroy, inject, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -7,8 +6,7 @@ import { Observable, combineLatest, map } from 'rxjs';
 import { OrdenesPlanEmpresarialComponent } from '../liquidacion-plan-empresarial/components/ordenes-plan-empresarial/ordenes-plan-empresarial.component';
 import { DetalleFacturaPEComponent } from '../facturas-plan-empresarial/components/detalle-factura/detalle-factura.component';
 import { DetalleLiquidizacionesPlanEmpresarialComponent } from '../detalle-liquidaciones-plan-empresarial/components/detalle-liquidaciones-plan-empresarial/detalle-liquidaciones-plan-empresarial.component';
-
-import { PlanEmpresarialContainerFacade } from '../plan-empresarial-container/plan-empresarial-container.facade';
+import { PlanEmpresarialContainerFacade } from './plan-empresarial-container.facade';
 import { FacturaPE, OrdenPlanEmpresarial, DetalleLiquidacionPE } from './shared/models/plan-empresarial.models';
 
 @Component({
@@ -25,7 +23,7 @@ import { FacturaPE, OrdenPlanEmpresarial, DetalleLiquidacionPE } from './shared/
 export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
 
-  // Streams del facade - ahora usando modelos compartidos
+  // Streams del facade
   readonly ordenes$: Observable<OrdenPlanEmpresarial[]>;
   readonly cargandoOrdenes$: Observable<boolean>;
 
@@ -40,7 +38,10 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
   readonly tiposPago$: Observable<any[]>;
   readonly total$: Observable<number>;
 
-  // Estados derivados para el componente de liquidaciones
+  // Estado para sincronizar búsqueda entre componentes
+  currentSearchText: string = '';
+
+  // Estado derivado para liquidaciones (solo datos necesarios para la tabla)
   readonly datosLiquidacion$: Observable<{
     factura: FacturaPE | null;
     detalles: DetalleLiquidacionPE[];
@@ -54,14 +55,16 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
   }>;
 
   constructor(private facade: PlanEmpresarialContainerFacade) {
-    // Inicializar todas las propiedades que dependen de `facade` aquí
     this.ordenes$ = this.facade.ordenes$;
     this.cargandoOrdenes$ = this.facade.cargandoOrdenes$;
+
     this.factura$ = this.facade.factura$;
     this.loadingFactura$ = this.facade.loadingFactura$;
+
     this.detallesLiquidacion$ = this.facade.detallesLiquidacion$;
     this.loadingDetalles$ = this.facade.loadingDetalles$;
     this.savingDetalles$ = this.facade.savingDetalles$;
+
     this.agencias$ = this.facade.agencias$;
     this.tiposPago$ = this.facade.tiposPago$;
     this.total$ = this.facade.total$;
@@ -101,38 +104,35 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Cargar datos iniciales
     this.facade.cargarCatalogos();
     this.facade.cargarOrdenes();
   }
 
   ngOnDestroy(): void {
-    // takeUntilDestroyed maneja la limpieza
+    // Limpieza automática con takeUntilDestroyed
   }
 
   // === Eventos desde el componente de facturas ===
   onFacturaBuscada(numeroDte: string): void {
+    this.currentSearchText = numeroDte;
     this.facade.buscarFactura(numeroDte);
+  }
+
+  onSearchTextChanged(searchText: string): void {
+    this.currentSearchText = searchText;
   }
 
   onLiquidarFactura(): void {
-    // Lógica específica para liquidar la factura
-    // Puedes implementar esto según tus necesidades de negocio
     console.log('Liquidar factura solicitado');
   }
 
-  // === Eventos desde el componente de liquidaciones ===
-  onBuscarDTEDesdeLiquidaciones(numeroDte: string): void {
-    this.facade.buscarFactura(numeroDte);
-  }
-
+  // === Eventos para la tabla de liquidaciones ===
   onAgregarDetalle(): void {
     this.facade.agregarDetalle();
   }
 
   onEditarDetalle(index: number): void {
-    // El modal se maneja internamente en el componente de liquidaciones
-    // Este evento puede ser útil para logging o validaciones adicionales
+    // El modal es manejado dentro del componente de liquidaciones
   }
 
   onEliminarDetalle(index: number): void {
@@ -147,9 +147,7 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
     this.facade.guardarTodosLosDetalles().pipe(
       takeUntilDestroyed(this.destroyRef)
     ).subscribe(success => {
-      if (success) {
-        console.log('Detalles guardados exitosamente');
-      }
+      if (success) console.log('Detalles guardados exitosamente');
     });
   }
 
@@ -158,10 +156,10 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
   }
 
   onLimpiarDatos(): void {
+    this.currentSearchText = '';
     this.facade.limpiarDatos();
   }
 
-  // === Evento de refrescar órdenes ===
   onRefrescarOrdenes(): void {
     this.facade.cargarOrdenes();
   }

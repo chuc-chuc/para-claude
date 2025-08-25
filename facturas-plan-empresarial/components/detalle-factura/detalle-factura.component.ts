@@ -1,6 +1,6 @@
-// components/detalle-factura/detalle-factura.component.ts
+// facturas-plan-empresarial/components/detalle-factura/detalle-factura.component.ts
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, Output, EventEmitter, OnDestroy } from '@angular/core';
+import { Component, OnInit, Output, EventEmitter, OnDestroy, Input } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Observable, Subject, takeUntil } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
@@ -18,10 +18,15 @@ import { DiasHabilesService, ValidacionVencimiento } from '../../../../servicios
 })
 export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
 
+  // === INPUTS PARA CONTROL EXTERNO ===
+  @Input() searchText: string = '';
+  @Input() ocultarBuscador: boolean = false;
+
   // === EVENTOS HACIA EL PADRE ===
   @Output() buscarFactura = new EventEmitter<string>();
   @Output() liquidarFactura = new EventEmitter<void>();
   @Output() facturaEncontrada = new EventEmitter<FacturaPE>();
+  @Output() searchTextChange = new EventEmitter<string>();
 
   // UI / inputs
   searchControl = new FormControl<string>('');
@@ -60,6 +65,23 @@ export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
       }
     });
 
+    // Inicializar con texto de búsqueda si viene del padre
+    if (this.searchText) {
+      this.searchControl.setValue(this.searchText, { emitEvent: false });
+    }
+
+    // Configurar búsqueda automática solo si no se oculta el buscador
+    if (!this.ocultarBuscador) {
+      this.configurarBusquedaAutomatica();
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private configurarBusquedaAutomatica(): void {
     // Buscar al tipear
     this.searchControl.valueChanges
       .pipe(
@@ -69,6 +91,8 @@ export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
       )
       .subscribe((v) => {
         const term = (v || '').trim();
+        this.searchTextChange.emit(term);
+
         if (term.length >= 3) {
           this.buscarFacturaInterno(term);
         }
@@ -76,11 +100,6 @@ export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
           this.buscarFacturaInterno('');
         }
       });
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   private buscarFacturaInterno(numeroDte: string): void {
@@ -101,7 +120,6 @@ export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
   // === GESTIÓN DE MODALES ===
 
   abrirRegistrar() {
-    console.log('🟢 Abriendo modal de registro'); // Debug temporal
     this.mostrarRegistrar = true;
   }
 
@@ -111,7 +129,6 @@ export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
 
   onFacturaGuardada() {
     this.cerrarRegistrar();
-    // El facade ya maneja la búsqueda automática después del registro
   }
 
   abrirAutorizacion() {
@@ -124,14 +141,10 @@ export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
 
   onSolicitudEnviada() {
     this.cerrarAutorizacion();
-    // El facade ya maneja el refresh automático
   }
 
   // === VALIDACIÓN DE DÍAS HÁBILES ===
 
-  /**
-   * Valida el vencimiento usando tu servicio de días hábiles existente
-   */
   private validarVencimientoFactura(factura: FacturaPE): void {
     if (!factura?.fecha_emision) {
       this.validacionVencimiento = null;
@@ -158,17 +171,11 @@ export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * Obtiene el mensaje de vencimiento desde la validación
-   */
   getMensajeVencimiento(): string {
     if (this.cargandoValidacion) return 'Validando días hábiles...';
     return this.validacionVencimiento?.mensaje || 'Sin validar';
   }
 
-  /**
-   * Obtiene las clases CSS desde la validación
-   */
   getClaseVencimiento(): string {
     if (this.cargandoValidacion) return 'text-gray-600 bg-gray-50 border-gray-200';
     return this.validacionVencimiento?.claseCSS || 'text-gray-600 bg-gray-50 border-gray-200';
@@ -179,7 +186,6 @@ export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
   puedeLiquidar(f: FacturaPE): boolean {
     if (f.estado_liquidacion === EstadoLiquidacionPE.Liquidado) return false;
 
-    // Si excede días y requiere autorización, verificar que esté aprobada
     if (this.validacionVencimiento?.requiereAutorizacion) {
       return f.estado_autorizacion === AutorizacionEstado.Aprobada;
     }
@@ -188,7 +194,6 @@ export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
   }
 
   onLiquidar(f: FacturaPE) {
-    // Si requiere autorización y no la tiene, abrir modal de autorización
     if (this.validacionVencimiento?.requiereAutorizacion && f.estado_autorizacion !== AutorizacionEstado.Aprobada) {
       this.abrirAutorizacion();
       return;
@@ -196,23 +201,16 @@ export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
 
     if (!this.puedeLiquidar(f)) return;
 
-    // Notificar al padre que se solicita liquidar
     this.liquidarFactura.emit();
   }
 
   // === MÉTODOS PÚBLICOS PARA CONTROL EXTERNO ===
 
-  /**
-   * Permite al padre buscar una factura específica
-   */
   buscarFacturaPorDTE(numeroDte: string): void {
     this.searchControl.setValue(numeroDte, { emitEvent: false });
     this.buscarFacturaInterno(numeroDte);
   }
 
-  /**
-   * Permite al padre limpiar la búsqueda
-   */
   limpiarBusqueda(): void {
     this.searchControl.setValue('', { emitEvent: false });
     this.facade.buscarPorDte('');
@@ -220,25 +218,16 @@ export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
 
   // === UTILIDADES ===
 
-  /**
-   * Convierte valores a número para mostrar en template
-   */
   monto(v: number | string | undefined): number {
     if (v === undefined || v === null) return 0;
     return typeof v === 'string' ? parseFloat(v) : v;
   }
 
-  /**
-   * Determina si requiere mostrar botón de autorización
-   */
   requiereAutorizacion(f: FacturaPE): boolean {
     return this.validacionVencimiento?.requiereAutorizacion === true &&
       f.estado_autorizacion !== AutorizacionEstado.Aprobada;
   }
 
-  /**
-   * Determina si el botón de liquidar debe estar deshabilitado
-   */
   liquidarDeshabilitado(f: FacturaPE): boolean {
     return !this.puedeLiquidar(f) &&
       (!this.validacionVencimiento?.requiereAutorizacion ||

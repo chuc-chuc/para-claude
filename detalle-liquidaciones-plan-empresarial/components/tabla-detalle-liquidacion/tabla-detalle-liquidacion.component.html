@@ -7,9 +7,10 @@
                 (click)="agregar.emit()" [disabled]="!habilitarAcciones || factura?.estado_id === 2">
                 Agregar
             </button>
-            <button class="px-3 py-1.5 text-sm rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+            <button
+                class="px-3 py-1.5 text-sm rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
                 (click)="guardarTodo.emit()" [disabled]="!habilitarAcciones || !detalles.length">
-                Guardar
+                Guardar Todo
             </button>
         </div>
     </div>
@@ -23,39 +24,80 @@
                     <th class="px-3 py-2">Agencia</th>
                     <th class="px-3 py-2">Descripción</th>
                     <th class="px-3 py-2 text-right">Monto</th>
-                    <th class="px-3 py-2">Proveedor</th>
                     <th class="px-3 py-2">Forma pago</th>
-                    <th class="px-3 py-2">Banco</th>
-                    <th class="px-3 py-2">Cuenta</th>
                     <th class="px-3 py-2 text-center">Acciones</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                 <tr *ngFor="let r of detalles; let i = index; trackBy: trackById"
                     class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+
+                    <!-- Orden -->
                     <td class="px-3 py-2 font-medium">{{ r?.numero_orden }}</td>
-                    <td class="px-3 py-2">{{ r?.agencia }}</td>
+
+                    <!-- Agencia - Editable -->
+                    <td class="px-3 py-2">
+                        <ng-container *ngIf="!r._editandoAgencia">
+                            <span class="cursor-pointer hover:bg-yellow-50 px-1 py-0.5 rounded"
+                                (click)="iniciarEdicionAgencia(i)" [title]="'Click para editar agencia'">
+                                {{ r?.agencia }}
+                            </span>
+                        </ng-container>
+
+                        <ng-container *ngIf="r._editandoAgencia">
+                            <select
+                                class="text-xs border rounded px-1 py-0.5 w-full focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                                [(ngModel)]="r._agenciaTemp" (blur)="guardarAgencia(i)"
+                                (keyup.enter)="guardarAgencia(i)" (keyup.escape)="cancelarEdicionAgencia(i)"
+                                #agenciaInput>
+                                <option [ngValue]="null" disabled>Seleccionar agencia...</option>
+                                <option *ngFor="let agencia of agencias" [ngValue]="agencia.nombre_liquidacion">
+                                    {{ agencia.nombre_liquidacion }}
+                                </option>
+                            </select>
+                        </ng-container>
+                    </td>
+
+                    <!-- Descripción -->
                     <td class="px-3 py-2">
                         <div class="max-w-xs truncate" [title]="r?.descripcion">{{ r?.descripcion }}</div>
                     </td>
-                    <td class="px-3 py-2 text-right">Q{{ r?.monto | number: '1.2-2' }}</td>
-                    <td class="px-3 py-2">{{ r?.correo_proveedor }}</td>
-                    <td class="px-3 py-2">
-                        <select class="text-sm border rounded px-2 py-1 dark:bg-gray-700 dark:text-gray-100"
-                            [(ngModel)]="r.forma_pago" (change)="onCambiarFormaPago(i, r.forma_pago)">
-                            <option [ngValue]="null" disabled>Seleccionar…</option>
-                            <option *ngFor="let tp of tiposPago" [ngValue]="tp?.id || tp?.nombre">
-                                {{ tp?.nombre || tp }}
-                            </option>
-                        </select>
+
+                    <!-- Monto - Editable -->
+                    <td class="px-3 py-2 text-right">
+                        <ng-container *ngIf="!r._editandoMonto">
+                            <span class="cursor-pointer hover:bg-yellow-50 px-1 py-0.5 rounded"
+                                (click)="iniciarEdicionMonto(i)" [title]="'Click para editar monto'">
+                                Q{{ r?.monto | number: '1.2-2' }}
+                            </span>
+                        </ng-container>
+
+                        <ng-container *ngIf="r._editandoMonto">
+                            <div class="flex items-center">
+                                <span class="text-gray-500 mr-1">Q</span>
+                                <input type="number"
+                                    class="text-xs border rounded px-1 py-0.5 w-24 text-right focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                                    [(ngModel)]="r._montoTemp" step="0.01" min="0.01" (blur)="guardarMonto(i)"
+                                    (keyup.enter)="guardarMonto(i)" (keyup.escape)="cancelarEdicionMonto(i)"
+                                    #montoInput>
+                            </div>
+                        </ng-container>
                     </td>
-                    <td class="px-3 py-2">{{ r?.banco }}</td>
-                    <td class="px-3 py-2">{{ r?.cuenta }}</td>
+
+                    <!-- Forma de pago - Solo lectura -->
+                    <td class="px-3 py-2">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                            [ngClass]="obtenerClaseTipoPago(r?.forma_pago)">
+                            {{ obtenerTextoTipoPago(r?.forma_pago) }}
+                        </span>
+                    </td>
+
+                    <!-- Acciones -->
                     <td class="px-3 py-2">
                         <div class="flex items-center justify-center gap-1">
                             <button class="p-1.5 rounded hover:bg-amber-50 text-amber-700 dark:hover:bg-amber-900/30"
                                 (click)="editar.emit(i)" [disabled]="!habilitarAcciones || factura?.estado_id === 2"
-                                title="Editar">
+                                title="Editar completo">
                                 ✎
                             </button>
                             <button class="p-1.5 rounded hover:bg-sky-50 text-sky-700 dark:hover:bg-sky-900/30"
@@ -73,11 +115,19 @@
                 </tr>
 
                 <tr *ngIf="!detalles.length">
-                    <td colspan="9" class="px-6 py-10 text-center text-gray-500 dark:text-gray-400">
-                        Sin registros de liquidación. Usa “Agregar” para crear uno nuevo.
+                    <td colspan="6" class="px-6 py-10 text-center text-gray-500 dark:text-gray-400">
+                        Sin registros de liquidación. Usa "Agregar" para crear uno nuevo.
                     </td>
                 </tr>
             </tbody>
         </table>
+    </div>
+
+    <!-- Indicador de guardado -->
+    <div *ngIf="guardandoCambios" class="absolute inset-0 bg-black/10 flex items-center justify-center">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-lg flex items-center gap-2">
+            <div class="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <span class="text-sm text-gray-700 dark:text-gray-200">Guardando cambios...</span>
+        </div>
     </div>
 </div>
