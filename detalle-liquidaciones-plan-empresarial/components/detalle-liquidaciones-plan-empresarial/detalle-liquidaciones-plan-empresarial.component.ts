@@ -1,5 +1,5 @@
 // ============================================================================
-// DETALLE LIQUIDACIONES - CORREGIDO PARA FUNCIONAR CON EL BACKEND
+// DETALLE LIQUIDACIONES - LIMPIO SIN DUPLICADOS
 // ============================================================================
 
 import { CommonModule } from '@angular/common';
@@ -65,9 +65,7 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit, O
   ) { }
 
   ngOnInit() {
-    console.log('🔧 Componente detalle liquidaciones inicializado');
-    console.log('📊 Factura actual:', this.factura);
-    console.log('📊 Detalles actuales:', this.detalles.length);
+    // Componente inicializado
   }
 
   ngOnDestroy() {
@@ -76,33 +74,23 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit, O
   }
 
   // ============================================================================
-  // HANDLERS DE TABLA - ✅ CORREGIDOS PARA EL BACKEND
+  // HANDLERS DE TABLA
   // ============================================================================
 
   onAgregar() {
-    console.log('➕ Iniciando creación de nuevo detalle...');
-
     if (!this.factura?.numero_dte) {
       this.servicio.mensajeServidor('error', 'No hay factura seleccionada para agregar detalles', 'Error');
       return;
     }
 
-    // ✅ NO emitir agregarDetalle aquí - el detalle se crea cuando se guarda desde el modal
     this.registroEnEdicion = this.crearDetalleVacio();
     this.indexEnEdicion = null;
     this.modoModal.set('crear');
     this.mostrarModalDetalle.set(true);
-
-    console.log('📝 Modal de creación abierto');
   }
 
   onEditar(index: number) {
-    if (index < 0 || index >= this.detalles.length) {
-      console.warn('⚠️ Índice de edición inválido:', index);
-      return;
-    }
-
-    console.log('✏️ Editando detalle en índice:', index);
+    if (index < 0 || index >= this.detalles.length) return;
 
     const detalleAEditar = this.detalles[index];
     this.editarDetalle.emit(index);
@@ -111,49 +99,38 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit, O
     this.registroEnEdicion = detalleAEditar ? { ...detalleAEditar } : null;
     this.modoModal.set('editar');
     this.mostrarModalDetalle.set(true);
-
-    console.log('📝 Modal de edición abierto para:', detalleAEditar);
   }
 
   onEliminar(index: number) {
-    if (index < 0 || index >= this.detalles.length) {
-      console.warn('⚠️ Índice de eliminación inválido:', index);
-      return;
-    }
+    if (index < 0 || index >= this.detalles.length) return;
 
-    console.log('🗑️ Solicitando confirmación para eliminar índice:', index);
     this.indexAEliminar = index;
     this.mostrarModalEliminar.set(true);
   }
 
   onCopiar(index: number) {
-    if (index < 0 || index >= this.detalles.length) {
-      console.warn('⚠️ Índice de copia inválido:', index);
-      return;
-    }
+    if (index < 0 || index >= this.detalles.length) return;
 
-    console.log('📋 Copiando detalle en índice:', index);
     this.copiarDetalle.emit(index);
   }
 
   onCambiarFormaPago(event: { index: number; tipo: string }) {
-    if (event.index < 0 || event.index >= this.detalles.length) {
-      console.warn('⚠️ Índice de cambio de forma de pago inválido:', event.index);
-      return;
-    }
+    if (event.index < 0 || event.index >= this.detalles.length) return;
 
-    console.log('💳 Cambiando forma de pago:', event);
     this.cambiarFormaPago.emit(event);
   }
 
   onActualizarDetalle(event: { index: number; campo: string; valor: any }) {
-    if (event.index < 0 || event.index >= this.detalles.length) {
-      console.warn('⚠️ Índice de actualización inválido:', event.index);
-      return;
-    }
+    if (event.index < 0 || event.index >= this.detalles.length) return;
 
-    console.log('🔄 Actualizando detalle:', event);
-    this.actualizarDetalle.emit(event);
+    // Actualizar localmente primero
+    if (event.campo === 'monto' || event.campo === 'agencia') {
+      const detalleActual = this.detalles[event.index];
+      detalleActual[event.campo] = event.valor;
+
+      this.actualizarDetalle.emit(event);
+      this.cdr.detectChanges();
+    }
   }
 
   onGuardarTodo() {
@@ -162,28 +139,23 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit, O
       return;
     }
 
-    console.log('💾 Guardando todos los detalles...');
     this.guardarTodo.emit();
   }
 
   // ============================================================================
-  // HANDLERS MODAL DETALLE - ✅ CORREGIDOS PARA CREAR/ACTUALIZAR VÍA API
+  // HANDLERS MODAL DETALLE
   // ============================================================================
 
   onGuardarDesdeModal(registro: any) {
-    console.log('💾 Guardando desde modal - Modo:', this.modoModal(), 'Registro:', registro);
-
     if (!this.factura?.numero_dte) {
       this.servicio.mensajeServidor('error', 'No hay factura seleccionada', 'Error');
       return;
     }
 
-    // ✅ Validar datos requeridos según backend
     if (!this.validarDatosRequeridos(registro)) {
       return;
     }
 
-    // ✅ Preparar payload para el backend
     const payload = this.prepararPayloadParaBackend(registro);
 
     if (this.modoModal() === 'crear') {
@@ -194,7 +166,6 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit, O
   }
 
   onCancelarModal() {
-    console.log('❌ Cancelando modal - Modo:', this.modoModal());
     this.cerrarModalDetalle();
   }
 
@@ -211,14 +182,12 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit, O
 
   onConfirmarEliminar() {
     if (this.indexAEliminar !== null) {
-      console.log('🗑️ Confirmando eliminación del índice:', this.indexAEliminar);
       this.eliminarDetalle.emit(this.indexAEliminar);
     }
     this.cerrarModalEliminar();
   }
 
   onCancelarEliminar() {
-    console.log('❌ Cancelando eliminación');
     this.cerrarModalEliminar();
   }
 
@@ -229,7 +198,7 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit, O
   }
 
   // ============================================================================
-  // MÉTODOS PARA INTERACTUAR DIRECTAMENTE CON EL BACKEND
+  // MÉTODOS DE BACKEND - ÚNICOS Y LIMPIOS
   // ============================================================================
 
   private validarDatosRequeridos(registro: any): boolean {
@@ -239,12 +208,10 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit, O
       if (!registro[campo] || (campo === 'monto' && registro[campo] <= 0)) {
         const nombreCampo = this.obtenerNombreCampoLegible(campo);
         this.servicio.mensajeServidor('error', `${nombreCampo} es requerido`, 'Validación');
-        console.error('❌ Campo requerido faltante:', campo);
         return false;
       }
     }
 
-    // Validar monto numérico
     if (isNaN(parseFloat(registro.monto))) {
       this.servicio.mensajeServidor('error', 'El monto debe ser un número válido', 'Validación');
       return false;
@@ -266,15 +233,12 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit, O
       cuenta: registro.cuenta || null,
     };
 
-    // ✅ Agregar ID solo si es edición
     if (this.modoModal() === 'editar' && registro.id) {
       payload.id = registro.id;
     }
 
-    // ✅ Agregar campos específicos según el tipo de pago
     this.agregarCamposEspecificos(payload, registro);
 
-    console.log('📦 Payload preparado para backend:', payload);
     return payload;
   }
 
@@ -311,72 +275,52 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit, O
   }
 
   private crearDetalleEnServidor(payload: any) {
-    console.log('🔨 Creando detalle en servidor...');
-
     this.servicio.query({
       ruta: 'contabilidad/guardarDetalleLiquidacion',
       tipo: 'post',
       body: payload
-    }).pipe(
-      takeUntil(this.destroy$)
-    ).subscribe({
+    }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response: any) => {
-        console.log('📥 Respuesta del servidor (crear):', response);
-
         if (response.respuesta === 'success') {
           this.servicio.mensajeServidor('success', 'Detalle creado correctamente', 'Éxito');
           this.cerrarModalDetalle();
-
-          // ✅ Recargar detalles desde el servidor
-          this.cargarDetalles.emit();
-
-          console.log('✅ Detalle creado exitosamente con ID:', response.datos?.id);
+          this.recargarDetalles(); // 🔑 emite al padre
         } else {
-          const mensaje = Array.isArray(response.mensaje) ? response.mensaje.join(', ') : response.mensaje;
-          this.servicio.mensajeServidor('error', mensaje || 'Error al crear detalle', 'Error');
-          console.error('❌ Error en respuesta del servidor:', response);
+          this.servicio.mensajeServidor('error', response.mensaje || 'Error al crear detalle', 'Error');
         }
       },
-      error: (error) => {
-        console.error('❌ Error al crear detalle:', error);
+      error: () => {
         this.servicio.mensajeServidor('error', 'Error de conexión al crear detalle', 'Error');
       }
     });
   }
 
-  private actualizarDetalleEnServidor(payload: any) {
-    console.log('🔨 Actualizando detalle en servidor...');
 
+  private actualizarDetalleEnServidor(payload: any) {
     this.servicio.query({
       ruta: 'contabilidad/guardarDetalleLiquidacion',
       tipo: 'post',
       body: payload
-    }).pipe(
-      takeUntil(this.destroy$)
-    ).subscribe({
+    }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response: any) => {
-        console.log('📥 Respuesta del servidor (actualizar):', response);
-
         if (response.respuesta === 'success') {
           this.servicio.mensajeServidor('success', 'Detalle actualizado correctamente', 'Éxito');
           this.cerrarModalDetalle();
-
-          // ✅ Recargar detalles desde el servidor
-          this.cargarDetalles.emit();
-
-          console.log('✅ Detalle actualizado exitosamente');
+          this.recargarDetalles(); // 🔑 emite al padre
         } else {
-          const mensaje = Array.isArray(response.mensaje) ? response.mensaje.join(', ') : response.mensaje;
-          this.servicio.mensajeServidor('error', mensaje || 'Error al actualizar detalle', 'Error');
-          console.error('❌ Error en respuesta del servidor:', response);
+          this.servicio.mensajeServidor('error', response.mensaje || 'Error al actualizar detalle', 'Error');
         }
       },
-      error: (error) => {
-        console.error('❌ Error al actualizar detalle:', error);
+      error: () => {
         this.servicio.mensajeServidor('error', 'Error de conexión al actualizar detalle', 'Error');
       }
     });
   }
+
+  private recargarDetalles(): void {
+    this.cargarDetalles.emit();
+  }
+
 
   // ============================================================================
   // UTILIDADES
@@ -407,16 +351,6 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit, O
       'correo_proveedor': 'Correo del proveedor'
     };
     return nombres[campo] || campo;
-  }
-
-  private esDetalleCompleto(detalle: any): boolean {
-    return !!(
-      detalle?.numero_orden?.trim() &&
-      detalle?.agencia?.trim() &&
-      detalle?.descripcion?.trim() &&
-      detalle?.monto > 0 &&
-      detalle?.forma_pago?.trim()
-    );
   }
 
   // ============================================================================
@@ -460,10 +394,6 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit, O
     const montoFactura = parseFloat(this.factura.monto_total);
     return Math.max(0, montoFactura - totalUsado);
   }
-
-  // ============================================================================
-  // INFO PARA DEBUGGING
-  // ============================================================================
 
   get infoEstado() {
     return {
