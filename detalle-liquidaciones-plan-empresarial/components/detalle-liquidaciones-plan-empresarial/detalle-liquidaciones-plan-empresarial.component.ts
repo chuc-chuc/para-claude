@@ -1,10 +1,15 @@
+// ============================================================================
+// DETALLE LIQUIDACIONES - CORREGIDO PARA FUNCIONAR CON EL BACKEND
+// ============================================================================
+
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, signal, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, Output, signal, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { TablaDetalleLiquidizacionComponent } from '../tabla-detalle-liquidacion/tabla-detalle-liquidacion.component';
 import { ModalDetalleLiquidizacionComponent } from '../modal-detalle-liquidacion/modal-detalle-liquidacion.component';
 import { ModalConfirmarEliminacionComponent } from '../modal-confirmar-eliminacion/modal-confirmar-eliminacion.component';
 import { ResumenLiquidacionComponent } from '../resumen-liquidacion/resumen-liquidacion.component';
 import { ServicioGeneralService } from '../../../../servicios/servicio-general.service';
+import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-detalle-liquidizaciones-pe',
@@ -18,7 +23,7 @@ import { ServicioGeneralService } from '../../../../servicios/servicio-general.s
   ],
   templateUrl: './detalle-liquidaciones-plan-empresarial.component.html'
 })
-export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit {
+export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit, OnDestroy {
   // === DATOS EXTERNOS ===
   @Input() factura: any | null = null;
   @Input() detalles: any[] = [];
@@ -52,7 +57,7 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit {
   indexAEliminar: number | null = null;
 
   // === ESTADO LOCAL ===
-  private autoGuardadoTimeout: any = null;
+  private destroy$ = new Subject<void>();
 
   constructor(
     private cdr: ChangeDetectorRef,
@@ -60,184 +65,136 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit {
   ) { }
 
   ngOnInit() {
-    this.cargarDatosIniciales();
+    console.log('🔧 Componente detalle liquidaciones inicializado');
+    console.log('📊 Factura actual:', this.factura);
+    console.log('📊 Detalles actuales:', this.detalles.length);
   }
 
-  // === INICIALIZACIÓN ===
-
-  private cargarDatosIniciales() {
-    // Cargar catálogos si no están disponibles
-    if (this.tiposPago.length === 0) {
-      this.cargarTiposPago();
-    }
-
-    // Si hay una factura pero no hay detalles, cargarlos
-    if (this.factura?.numero_dte && this.detalles.length === 0) {
-      this.cargarDetallesLiquidacion();
-    }
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
-  private cargarTiposPago() {
-    this.servicio.query({
-      ruta: 'contabilidad/obtenerTiposPago',
-      tipo: 'get'
-    }).subscribe({
-      next: (res: any) => {
-        if (res.respuesta === 'success') {
-          this.tiposPago = res.datos || [];
-        }
-      },
-      error: (err) => {
-        console.error('Error al cargar tipos de pago:', err);
-      }
-    });
-  }
-
-  private cargarDetallesLiquidacion() {
-    if (!this.factura?.numero_dte) return;
-
-    this.servicio.query({
-      ruta: 'contabilidad/obtenerDetallesLiquidacion',
-      tipo: 'post',
-      body: { numero_factura: this.factura.numero_dte }
-    }).subscribe({
-      next: (res: any) => {
-        if (res.respuesta === 'success') {
-          this.detalles = res.datos || [];
-          this.recalcularTotales();
-        }
-      },
-      error: (err) => {
-        console.error('Error al cargar detalles:', err);
-        this.servicio.mensajeServidor('error', 'Error al cargar los detalles de liquidación', 'Error');
-      }
-    });
-  }
-
-  // === HANDLERS DE TABLA ===
+  // ============================================================================
+  // HANDLERS DE TABLA - ✅ CORREGIDOS PARA EL BACKEND
+  // ============================================================================
 
   onAgregar() {
-    this.agregarDetalle.emit();
+    console.log('➕ Iniciando creación de nuevo detalle...');
+
+    if (!this.factura?.numero_dte) {
+      this.servicio.mensajeServidor('error', 'No hay factura seleccionada para agregar detalles', 'Error');
+      return;
+    }
+
+    // ✅ NO emitir agregarDetalle aquí - el detalle se crea cuando se guarda desde el modal
     this.registroEnEdicion = this.crearDetalleVacio();
     this.indexEnEdicion = null;
     this.modoModal.set('crear');
     this.mostrarModalDetalle.set(true);
+
+    console.log('📝 Modal de creación abierto');
   }
 
   onEditar(index: number) {
-    if (index < 0 || index >= this.detalles.length) return;
+    if (index < 0 || index >= this.detalles.length) {
+      console.warn('⚠️ Índice de edición inválido:', index);
+      return;
+    }
+
+    console.log('✏️ Editando detalle en índice:', index);
+
+    const detalleAEditar = this.detalles[index];
     this.editarDetalle.emit(index);
+
     this.indexEnEdicion = index;
-    this.registroEnEdicion = this.detalles[index] ? { ...this.detalles[index] } : null;
+    this.registroEnEdicion = detalleAEditar ? { ...detalleAEditar } : null;
     this.modoModal.set('editar');
     this.mostrarModalDetalle.set(true);
+
+    console.log('📝 Modal de edición abierto para:', detalleAEditar);
   }
 
   onEliminar(index: number) {
-    if (index < 0 || index >= this.detalles.length) return;
+    if (index < 0 || index >= this.detalles.length) {
+      console.warn('⚠️ Índice de eliminación inválido:', index);
+      return;
+    }
+
+    console.log('🗑️ Solicitando confirmación para eliminar índice:', index);
     this.indexAEliminar = index;
     this.mostrarModalEliminar.set(true);
   }
 
-  // ✅ FUNCIÓN DE COPIA CORREGIDA
   onCopiar(index: number) {
-    if (index < 0 || index >= this.detalles.length) return;
-
-    const detalleOriginal = this.detalles[index];
-    const copia = {
-      ...detalleOriginal,
-      id: undefined // ✅ Solo quitar ID, NO modificar descripción
-    };
-
-    // ✅ Insertar después del original
-    this.detalles.splice(index + 1, 0, copia);
-    this.recalcularTotales();
-
-    // Si el detalle tiene datos completos, auto-guardarlo
-    if (this.esDetalleCompleto(copia)) {
-      this.autoGuardarDetalle(copia, index + 1);
+    if (index < 0 || index >= this.detalles.length) {
+      console.warn('⚠️ Índice de copia inválido:', index);
+      return;
     }
 
+    console.log('📋 Copiando detalle en índice:', index);
     this.copiarDetalle.emit(index);
   }
 
   onCambiarFormaPago(event: { index: number; tipo: string }) {
-    if (event.index < 0 || event.index >= this.detalles.length) return;
+    if (event.index < 0 || event.index >= this.detalles.length) {
+      console.warn('⚠️ Índice de cambio de forma de pago inválido:', event.index);
+      return;
+    }
 
-    // Actualizar localmente
-    this.detalles[event.index].forma_pago = event.tipo;
-
-    // Emitir evento al padre si es necesario
+    console.log('💳 Cambiando forma de pago:', event);
     this.cambiarFormaPago.emit(event);
   }
 
   onActualizarDetalle(event: { index: number; campo: string; valor: any }) {
-    if (event.index < 0 || event.index >= this.detalles.length) return;
-
-    // Actualizar localmente
-    this.detalles[event.index][event.campo] = event.valor;
-    this.recalcularTotales();
-
-    // Auto-guardar si el detalle está completo
-    const detalle = this.detalles[event.index];
-    if (this.esDetalleCompleto(detalle) && detalle.id) {
-      this.programarAutoGuardado(detalle, event.index);
+    if (event.index < 0 || event.index >= this.detalles.length) {
+      console.warn('⚠️ Índice de actualización inválido:', event.index);
+      return;
     }
 
+    console.log('🔄 Actualizando detalle:', event);
     this.actualizarDetalle.emit(event);
   }
 
   onGuardarTodo() {
-    if (this.detalles.length === 0) return;
-
-    // Filtrar solo los detalles completos para guardar
-    const detallesCompletos = this.detalles.filter(this.esDetalleCompleto);
-
-    if (detallesCompletos.length === 0) {
-      this.servicio.mensajeServidor('warning', 'No hay detalles completos para guardar', 'Atención');
+    if (this.detalles.length === 0) {
+      this.servicio.mensajeServidor('warning', 'No hay detalles para guardar', 'Atención');
       return;
     }
 
-    this.guardarTodosLosDetalles(detallesCompletos);
+    console.log('💾 Guardando todos los detalles...');
+    this.guardarTodo.emit();
   }
 
-  // === HANDLERS MODAL DETALLE ===
+  // ============================================================================
+  // HANDLERS MODAL DETALLE - ✅ CORREGIDOS PARA CREAR/ACTUALIZAR VÍA API
+  // ============================================================================
 
   onGuardarDesdeModal(registro: any) {
-    if (this.modoModal() === 'crear') {
-      // Agregar nuevo detalle
-      const nuevoDetalle = { ...registro, id: null };
-      this.detalles.push(nuevoDetalle);
+    console.log('💾 Guardando desde modal - Modo:', this.modoModal(), 'Registro:', registro);
 
-      // Auto-guardar si está completo
-      if (this.esDetalleCompleto(nuevoDetalle)) {
-        this.autoGuardarDetalle(nuevoDetalle, this.detalles.length - 1);
-      }
-
-    } else if (this.modoModal() === 'editar' && this.indexEnEdicion !== null) {
-      // Actualizar detalle existente
-      const index = this.indexEnEdicion;
-      this.detalles[index] = { ...registro };
-
-      // Auto-guardar si está completo
-      if (this.esDetalleCompleto(this.detalles[index])) {
-        this.autoGuardarDetalle(this.detalles[index], index);
-      }
+    if (!this.factura?.numero_dte) {
+      this.servicio.mensajeServidor('error', 'No hay factura seleccionada', 'Error');
+      return;
     }
 
-    this.recalcularTotales();
-    this.cerrarModalDetalle();
+    // ✅ Validar datos requeridos según backend
+    if (!this.validarDatosRequeridos(registro)) {
+      return;
+    }
+
+    // ✅ Preparar payload para el backend
+    const payload = this.prepararPayloadParaBackend(registro);
+
+    if (this.modoModal() === 'crear') {
+      this.crearDetalleEnServidor(payload);
+    } else if (this.modoModal() === 'editar' && this.indexEnEdicion !== null) {
+      this.actualizarDetalleEnServidor(payload);
+    }
   }
 
   onCancelarModal() {
-    if (this.modoModal() === 'crear') {
-      // Si era creación, eliminar el último detalle agregado si está vacío
-      const ultimoIndex = this.detalles.length - 1;
-      if (ultimoIndex >= 0 && !this.esDetalleCompleto(this.detalles[ultimoIndex])) {
-        this.detalles.splice(ultimoIndex, 1);
-        this.recalcularTotales();
-      }
-    }
+    console.log('❌ Cancelando modal - Modo:', this.modoModal());
     this.cerrarModalDetalle();
   }
 
@@ -248,25 +205,20 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
-  // === HANDLERS MODAL ELIMINACIÓN ===
+  // ============================================================================
+  // HANDLERS MODAL ELIMINACIÓN
+  // ============================================================================
 
   onConfirmarEliminar() {
     if (this.indexAEliminar !== null) {
-      const detalle = this.detalles[this.indexAEliminar];
-
-      if (detalle?.id) {
-        // Si tiene ID, eliminar del servidor
-        this.eliminarDetalleEnServidor(detalle.id, this.indexAEliminar);
-      } else {
-        // Si no tiene ID, solo eliminar localmente
-        this.detalles.splice(this.indexAEliminar, 1);
-        this.recalcularTotales();
-      }
+      console.log('🗑️ Confirmando eliminación del índice:', this.indexAEliminar);
+      this.eliminarDetalle.emit(this.indexAEliminar);
     }
     this.cerrarModalEliminar();
   }
 
   onCancelarEliminar() {
+    console.log('❌ Cancelando eliminación');
     this.cerrarModalEliminar();
   }
 
@@ -276,130 +228,159 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
-  // === AUTO-GUARDADO Y PERSISTENCIA ===
+  // ============================================================================
+  // MÉTODOS PARA INTERACTUAR DIRECTAMENTE CON EL BACKEND
+  // ============================================================================
 
-  private programarAutoGuardado(detalle: any, index: number) {
-    // Cancelar auto-guardado pendiente
-    if (this.autoGuardadoTimeout) {
-      clearTimeout(this.autoGuardadoTimeout);
-    }
+  private validarDatosRequeridos(registro: any): boolean {
+    const camposRequeridos = ['numero_orden', 'agencia', 'descripcion', 'monto', 'forma_pago'];
 
-    // Programar nuevo auto-guardado después de 1 segundo de inactividad
-    this.autoGuardadoTimeout = setTimeout(() => {
-      this.autoGuardarDetalle(detalle, index);
-    }, 1000);
-  }
-
-  private async autoGuardarDetalle(detalle: any, index: number) {
-    if (!this.esDetalleCompleto(detalle)) return;
-
-    try {
-      const payload = {
-        ...detalle,
-        numero_factura: this.factura?.numero_dte
-      };
-
-      const response = await this.servicio.query({
-        ruta: 'contabilidad/guardarDetalleLiquidacion',
-        tipo: 'post',
-        body: payload
-      }).toPromise();
-
-      if (response?.respuesta === 'success') {
-        // Actualizar el ID si es un nuevo registro
-        if (!detalle.id && response.datos?.id) {
-          this.detalles[index].id = response.datos.id;
-        }
-
-        // Mostrar mensaje discreto de éxito
-        this.mostrarMensajeAutoGuardado('success');
-      } else {
-        this.mostrarMensajeAutoGuardado('error', response?.mensaje);
+    for (const campo of camposRequeridos) {
+      if (!registro[campo] || (campo === 'monto' && registro[campo] <= 0)) {
+        const nombreCampo = this.obtenerNombreCampoLegible(campo);
+        this.servicio.mensajeServidor('error', `${nombreCampo} es requerido`, 'Validación');
+        console.error('❌ Campo requerido faltante:', campo);
+        return false;
       }
+    }
 
-    } catch (error) {
-      console.error('Error en auto-guardado:', error);
-      this.mostrarMensajeAutoGuardado('error', 'Error de conexión');
+    // Validar monto numérico
+    if (isNaN(parseFloat(registro.monto))) {
+      this.servicio.mensajeServidor('error', 'El monto debe ser un número válido', 'Validación');
+      return false;
+    }
+
+    return true;
+  }
+
+  private prepararPayloadParaBackend(registro: any): any {
+    const payload: any = {
+      numero_factura: this.factura!.numero_dte,
+      numero_orden: registro.numero_orden,
+      agencia: registro.agencia,
+      descripcion: registro.descripcion,
+      monto: parseFloat(registro.monto),
+      correo_proveedor: registro.correo_proveedor || null,
+      forma_pago: registro.forma_pago,
+      banco: registro.banco || null,
+      cuenta: registro.cuenta || null,
+    };
+
+    // ✅ Agregar ID solo si es edición
+    if (this.modoModal() === 'editar' && registro.id) {
+      payload.id = registro.id;
+    }
+
+    // ✅ Agregar campos específicos según el tipo de pago
+    this.agregarCamposEspecificos(payload, registro);
+
+    console.log('📦 Payload preparado para backend:', payload);
+    return payload;
+  }
+
+  private agregarCamposEspecificos(payload: any, registro: any) {
+    switch (registro.forma_pago) {
+      case 'deposito':
+        if (registro.id_socio) payload.id_socio = registro.id_socio;
+        if (registro.nombre_socio) payload.nombre_socio = registro.nombre_socio;
+        if (registro.numero_cuenta_deposito) payload.numero_cuenta_deposito = registro.numero_cuenta_deposito;
+        if (registro.producto_cuenta) payload.producto_cuenta = registro.producto_cuenta;
+        if (registro.observaciones) payload.observaciones = registro.observaciones;
+        break;
+
+      case 'transferencia':
+        if (registro.nombre_cuenta) payload.nombre_cuenta = registro.nombre_cuenta;
+        if (registro.numero_cuenta) payload.numero_cuenta = registro.numero_cuenta;
+        if (registro.banco) payload.banco = registro.banco;
+        if (registro.tipo_cuenta) payload.tipo_cuenta = registro.tipo_cuenta;
+        if (registro.observaciones) payload.observaciones = registro.observaciones;
+        break;
+
+      case 'cheque':
+        if (registro.nombre_beneficiario) payload.nombre_beneficiario = registro.nombre_beneficiario;
+        if (registro.consignacion) payload.consignacion = registro.consignacion;
+        if (registro.no_negociable !== undefined) payload.no_negociable = registro.no_negociable;
+        if (registro.observaciones) payload.observaciones = registro.observaciones;
+        break;
+
+      case 'tarjeta':
+      case 'anticipo':
+        if (registro.nota) payload.nota = registro.nota;
+        break;
     }
   }
 
-  private async guardarTodosLosDetalles(detalles: any[]) {
-    this.isSaving = true;
+  private crearDetalleEnServidor(payload: any) {
+    console.log('🔨 Creando detalle en servidor...');
 
-    try {
-      const promesas = detalles.map(detalle => {
-        const payload = {
-          ...detalle,
-          numero_factura: this.factura?.numero_dte
-        };
+    this.servicio.query({
+      ruta: 'contabilidad/guardarDetalleLiquidacion',
+      tipo: 'post',
+      body: payload
+    }).pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (response: any) => {
+        console.log('📥 Respuesta del servidor (crear):', response);
 
-        return this.servicio.query({
-          ruta: 'contabilidad/guardarDetalleLiquidacion',
-          tipo: 'post',
-          body: payload
-        }).toPromise();
-      });
+        if (response.respuesta === 'success') {
+          this.servicio.mensajeServidor('success', 'Detalle creado correctamente', 'Éxito');
+          this.cerrarModalDetalle();
 
-      const resultados = await Promise.all(promesas);
+          // ✅ Recargar detalles desde el servidor
+          this.cargarDetalles.emit();
 
-      let exitosos = 0;
-      let errores = 0;
-
-      resultados.forEach((resultado, index) => {
-        if (resultado?.respuesta === 'success') {
-          exitosos++;
-          // Actualizar ID si es nuevo registro
-          if (!detalles[index].id && resultado.datos?.id) {
-            const detalleIndex = this.detalles.indexOf(detalles[index]);
-            if (detalleIndex >= 0) {
-              this.detalles[detalleIndex].id = resultado.datos.id;
-            }
-          }
+          console.log('✅ Detalle creado exitosamente con ID:', response.datos?.id);
         } else {
-          errores++;
+          const mensaje = Array.isArray(response.mensaje) ? response.mensaje.join(', ') : response.mensaje;
+          this.servicio.mensajeServidor('error', mensaje || 'Error al crear detalle', 'Error');
+          console.error('❌ Error en respuesta del servidor:', response);
         }
-      });
-
-      if (errores === 0) {
-        this.servicio.mensajeServidor('success', `${exitosos} detalles guardados correctamente`, 'Éxito');
-      } else {
-        this.servicio.mensajeServidor('warning', `${exitosos} guardados, ${errores} con errores`, 'Atención');
+      },
+      error: (error) => {
+        console.error('❌ Error al crear detalle:', error);
+        this.servicio.mensajeServidor('error', 'Error de conexión al crear detalle', 'Error');
       }
-
-      // Recargar detalles para sincronizar
-      this.cargarDetallesLiquidacion();
-
-    } catch (error) {
-      console.error('Error al guardar todos los detalles:', error);
-      this.servicio.mensajeServidor('error', 'Error al guardar los detalles', 'Error');
-    } finally {
-      this.isSaving = false;
-    }
+    });
   }
 
-  private async eliminarDetalleEnServidor(detalleId: number, index: number) {
-    try {
-      const response = await this.servicio.query({
-        ruta: 'contabilidad/eliminarDetalleLiquidacion',
-        tipo: 'post',
-        body: { id: detalleId }
-      }).toPromise();
+  private actualizarDetalleEnServidor(payload: any) {
+    console.log('🔨 Actualizando detalle en servidor...');
 
-      if (response?.respuesta === 'success') {
-        this.detalles.splice(index, 1);
-        this.recalcularTotales();
-        this.servicio.mensajeServidor('success', 'Detalle eliminado correctamente', 'Éxito');
-      } else {
-        this.servicio.mensajeServidor('error', response?.mensaje || 'Error al eliminar', 'Error');
+    this.servicio.query({
+      ruta: 'contabilidad/guardarDetalleLiquidacion',
+      tipo: 'post',
+      body: payload
+    }).pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (response: any) => {
+        console.log('📥 Respuesta del servidor (actualizar):', response);
+
+        if (response.respuesta === 'success') {
+          this.servicio.mensajeServidor('success', 'Detalle actualizado correctamente', 'Éxito');
+          this.cerrarModalDetalle();
+
+          // ✅ Recargar detalles desde el servidor
+          this.cargarDetalles.emit();
+
+          console.log('✅ Detalle actualizado exitosamente');
+        } else {
+          const mensaje = Array.isArray(response.mensaje) ? response.mensaje.join(', ') : response.mensaje;
+          this.servicio.mensajeServidor('error', mensaje || 'Error al actualizar detalle', 'Error');
+          console.error('❌ Error en respuesta del servidor:', response);
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error al actualizar detalle:', error);
+        this.servicio.mensajeServidor('error', 'Error de conexión al actualizar detalle', 'Error');
       }
-
-    } catch (error) {
-      console.error('Error al eliminar detalle:', error);
-      this.servicio.mensajeServidor('error', 'Error de conexión al eliminar', 'Error');
-    }
+    });
   }
 
-  // === UTILIDADES ===
+  // ============================================================================
+  // UTILIDADES
+  // ============================================================================
 
   private crearDetalleVacio() {
     return {
@@ -416,6 +397,18 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit {
     };
   }
 
+  private obtenerNombreCampoLegible(campo: string): string {
+    const nombres: { [key: string]: string } = {
+      'numero_orden': 'Número de orden',
+      'agencia': 'Agencia',
+      'descripcion': 'Descripción',
+      'monto': 'Monto',
+      'forma_pago': 'Forma de pago',
+      'correo_proveedor': 'Correo del proveedor'
+    };
+    return nombres[campo] || campo;
+  }
+
   private esDetalleCompleto(detalle: any): boolean {
     return !!(
       detalle?.numero_orden?.trim() &&
@@ -426,34 +419,9 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit {
     );
   }
 
-  private recalcularTotales() {
-    this.total = this.detalles.reduce((sum, detalle) => {
-      return sum + (parseFloat(detalle.monto) || 0);
-    }, 0);
-
-    // Recalcular estado del monto
-    if (this.montoFactura > 0) {
-      if (this.total === this.montoFactura) {
-        this.estadoMonto = 'completo';
-      } else if (this.total > this.montoFactura) {
-        this.estadoMonto = 'excedido';
-      } else {
-        this.estadoMonto = 'incompleto';
-      }
-    }
-  }
-
-  private mostrarMensajeAutoGuardado(tipo: 'success' | 'error', mensaje?: string) {
-    // Mensaje discreto que se auto-oculta
-    const texto = tipo === 'success'
-      ? 'Guardado automáticamente'
-      : `Error: ${mensaje || 'No se pudo guardar'}`;
-
-    // Usar un toast discreto o similar
-    this.servicio.mensajeServidor(tipo, texto, tipo === 'success' ? 'Guardado' : 'Error');
-  }
-
-  // === GETTERS PARA EL TEMPLATE ===
+  // ============================================================================
+  // GETTERS PARA EL TEMPLATE
+  // ============================================================================
 
   obtenerFacturaActualId(): number | null {
     return this.factura?.id || null;
@@ -461,5 +429,53 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit {
 
   obtenerTotalMontoRegistros(): number {
     return this.total;
+  }
+
+  validarMontoDisponible(nuevoMonto: number, excluirIndice?: number): boolean {
+    if (!this.factura?.monto_total) return true;
+
+    let totalSinExcluir = 0;
+    this.detalles.forEach((detalle, i) => {
+      if (i !== excluirIndice) {
+        totalSinExcluir += parseFloat(detalle.monto) || 0;
+      }
+    });
+
+    const nuevoTotal = totalSinExcluir + nuevoMonto;
+    const montoFactura = parseFloat(this.factura.monto_total);
+
+    return nuevoTotal <= montoFactura;
+  }
+
+  calcularMontoDisponible(excluirIndice?: number): number {
+    if (!this.factura?.monto_total) return 0;
+
+    let totalUsado = 0;
+    this.detalles.forEach((detalle, i) => {
+      if (i !== excluirIndice) {
+        totalUsado += parseFloat(detalle.monto) || 0;
+      }
+    });
+
+    const montoFactura = parseFloat(this.factura.monto_total);
+    return Math.max(0, montoFactura - totalUsado);
+  }
+
+  // ============================================================================
+  // INFO PARA DEBUGGING
+  // ============================================================================
+
+  get infoEstado() {
+    return {
+      totalDetalles: this.detalles.length,
+      montoTotal: this.total,
+      montoFactura: this.montoFactura,
+      estadoMonto: this.estadoMonto,
+      habilitarAcciones: this.habilitarAcciones,
+      isLoading: this.isLoading,
+      isSaving: this.isSaving,
+      facturaPresente: !!this.factura,
+      numeroFactura: this.factura?.numero_dte || 'ninguna'
+    };
   }
 }

@@ -1,5 +1,5 @@
 // ============================================================================
-// MODELO ÚNICO CONSOLIDADO - Plan Empresarial
+// MODELO ÚNICO CONSOLIDADO - Plan Empresarial - CORREGIDO
 // ============================================================================
 
 /** Moneda usada en facturas */
@@ -264,27 +264,28 @@ export interface GenericApiResponse<T = any> {
 }
 
 // ============================================================================
-// ENDPOINTS
+// ENDPOINTS CORREGIDOS - ✅ SOLO CONTABILIDAD
 // ============================================================================
 
-/** Endpoints usados por el feature */
+/** Endpoints unificados - usando solo contabilidad/ */
 export const PLAN_EMPRESARIAL_ENDPOINTS = {
     // Facturas
     BUSCAR_FACTURA: 'facturas/buscarPorNumeroDte',
     REGISTRAR_FACTURA: 'facturas/registro/facturaManual',
     SOLICITAR_AUTORIZACION: 'facturas/solicitarAutorizacionTardanza',
 
-    // Liquidaciones
-    OBTENER_DETALLES: 'facturas/obtenerDetallesLiquidacion',
-    GUARDAR_DETALLE: 'facturas/liquidacion/guardarDetalle',
-    ELIMINAR_DETALLE: 'facturas/liquidacion/eliminarDetalle',
+    // ✅ LIQUIDACIONES - CORREGIDAS TODAS A CONTABILIDAD
+    OBTENER_DETALLES: 'contabilidad/obtenerDetallesLiquidacion',
+    GUARDAR_DETALLE: 'contabilidad/guardarDetalleLiquidacion',
+    ELIMINAR_DETALLE: 'contabilidad/eliminarDetalleLiquidacion',
+    ACTUALIZAR_DETALLE: 'contabilidad/actualizarMontoAgencia',
 
     // Órdenes
     LISTAR_ORDENES: 'contabilidad/obtenerOrdenesAutorizadas',
     LISTAR_ANTICIPOS_PENDIENTES: 'contabilidad/obtenerSolicitudesPendientesAnticipos',
     SOLICITAR_AUTORIZACION_ANTICIPO: 'contabilidad/solicitarAutorizacionAnticiposPendientes',
 
-    // Catálogos
-    OBTENER_AGENCIAS: 'facturas/buscarNombreLiquidacion',
+    // ✅ CATÁLOGOS - CORREGIDOS A CONTABILIDAD
+    OBTENER_AGENCIAS: 'contabilidad/buscarNombreLiquidacion',
     OBTENER_TIPOS_PAGO: 'contabilidad/obtenerTiposPago'
 } as const;
