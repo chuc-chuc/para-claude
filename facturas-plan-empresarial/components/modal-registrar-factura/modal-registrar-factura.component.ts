@@ -1,9 +1,14 @@
-// components/modal-registrar-factura/modal-registrar-factura.component.ts
+// ============================================================================
+// MODAL REGISTRAR FACTURA - CORREGIDO CON FACADE UNIFICADO
+// ============================================================================
+
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Output } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { FacturasPEFacade } from '../../services/facturas-pe.facade';
-import { Moneda, RegistrarFacturaPayload } from '../../models/facturas-pe.models';
+
+// USAR FACADE Y MODELOS UNIFICADOS
+import { PlanEmpresarialContainerFacade } from '../../../plan-empresarial-container/plan-empresarial-container.facade';
+import { Moneda, RegistrarFacturaPayload } from '../../../plan-empresarial-container/shared/models/plan-empresarial.models';
 
 @Component({
   selector: 'app-modal-registrar-factura',
@@ -19,10 +24,12 @@ export class ModalRegistrarFacturaComponent {
     { codigo: '1', nombre: 'RECIBO' },
     { codigo: '2', nombre: 'FACT' }
   ];
+
   autorizaciones = [
     { codigo: '1', nombre: 'COOPERATIVA EL BIENESTAR' },
     { codigo: '2', nombre: 'PEDRO NOE YAC' }
   ];
+
   monedas: Moneda[] = ['GTQ', 'USD'];
 
   form = new FormGroup({
@@ -37,7 +44,7 @@ export class ModalRegistrarFacturaComponent {
 
   submitting = false;
 
-  constructor(private facade: FacturasPEFacade) { }
+  constructor(private facade: PlanEmpresarialContainerFacade) { } // ✅ FACADE UNIFICADO
 
   close() {
     this.cerrar.emit();
@@ -58,6 +65,7 @@ export class ModalRegistrarFacturaComponent {
       moneda: v.moneda!
     };
 
+    // ✅ USAR MÉTODO DEL FACADE UNIFICADO
     this.facade.registrarFactura(payload, () => {
       this.submitting = false;
       this.facturaGuardada.emit();

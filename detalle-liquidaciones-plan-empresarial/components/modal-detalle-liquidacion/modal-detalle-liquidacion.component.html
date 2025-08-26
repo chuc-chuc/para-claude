@@ -105,7 +105,7 @@
                             <option value="" disabled>Seleccionar forma de pago...</option>
                             <option *ngFor="let tipo of tiposPago; trackBy: trackByTipoPago" [value]="tipo.id">
                                 {{ tipo.nombre }}
-                                <span *ngIf="tipo.requiere_formulario"> (Formulario específico)</span>
+                                <span *ngIf="tipo.requiereFormulario"> (Formulario específico)</span>
                             </option>
                         </select>
                         <div *ngIf="campoInvalido('forma_pago')" class="text-red-500 text-xs mt-1">

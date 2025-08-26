@@ -1,4 +1,7 @@
-// detalle-liquidaciones-plan-empresarial/components/modal-detalle-liquidacion/modal-detalle-liquidacion.component.ts
+// ============================================================================
+// MODAL DETALLE LIQUIDACIÓN - CORREGIDO
+// ============================================================================
+
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output, signal, OnInit, OnDestroy } from '@angular/core';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -11,13 +14,8 @@ import { PagoTarjetaSelectComponent } from '../pago-forms/pago-tarjeta-select/pa
 import { PagoAnticipoSelectComponent } from '../pago-forms/pago-anticipo-select/pago-anticipo-select.component';
 import { NgSelectModule } from '@ng-select/ng-select';
 
-interface TipoPago {
-  id: string;
-  nombre: string;
-  requiere_formulario: boolean;
-  color?: string;
-  icono?: string;
-}
+// USAR MODELO UNIFICADO
+import { TipoPago, TIPOS_PAGO_DEFAULT } from '../../../plan-empresarial-container/shared/models/plan-empresarial.models';
 
 interface Banco {
   id_banco: number;
@@ -73,14 +71,8 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
   // FORMULARIO PRINCIPAL
   formularioPrincipal!: FormGroup;
 
-  // TIPOS DE PAGO ACTUALIZADOS (sin efectivo)
-  tiposPago: TipoPago[] = [
-    { id: 'deposito', nombre: 'Por depósito a cuenta', requiere_formulario: true, color: 'blue', icono: 'deposito' },
-    { id: 'transferencia', nombre: 'Por transferencia', requiere_formulario: true, color: 'green', icono: 'transferencia' },
-    { id: 'cheque', nombre: 'Por cheque', requiere_formulario: true, color: 'purple', icono: 'cheque' },
-    { id: 'tarjeta', nombre: 'Por tarjeta de crédito', requiere_formulario: false, color: 'yellow', icono: 'tarjeta' },
-    { id: 'anticipo', nombre: 'Por anticipo', requiere_formulario: false, color: 'orange', icono: 'anticipo' },
-  ];
+  // USAR TIPOS DE PAGO DEL MODELO UNIFICADO
+  tiposPago: TipoPago[] = TIPOS_PAGO_DEFAULT;
 
   tipoSeleccionado = signal<string>('');
 
@@ -109,7 +101,7 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
     this.cargarAgencias();
     this.configurarSuscripciones();
 
-    // NO inicializar tipo seleccionado por defecto
+    // Inicializar tipo seleccionado si hay registro previo
     if (this.registro?.forma_pago) {
       this.tipoSeleccionado.set(this.registro.forma_pago);
       this.formularioPrincipal.get('forma_pago')?.setValue(this.registro.forma_pago);
@@ -137,7 +129,7 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
         Validators.min(0.01)
       ]),
       correo_proveedor: new FormControl('', [Validators.email]),
-      forma_pago: new FormControl('', [Validators.required]), // Sin valor inicial
+      forma_pago: new FormControl('', [Validators.required]),
       banco: new FormControl(''),
       cuenta: new FormControl('')
     });
@@ -254,7 +246,7 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
     this.cargandoAgencias = true;
 
     this.servicioGeneral.query({
-      ruta: 'contabilidad/buscarNombreLiquidacion', // Asumo esta ruta basada en el patrón
+      ruta: 'contabilidad/buscarNombreLiquidacion',
       tipo: 'get'
     }).subscribe({
       next: (res: any) => {
@@ -285,7 +277,7 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
 
     const tipoPago = this.tiposPago.find(t => t.nombre === forma_pago || t.id === forma_pago);
 
-    if (tipoPago?.requiere_formulario) {
+    if (tipoPago?.requiereFormulario) {
       // Para tipos complejos, limpiar campos básicos
       bancoControl.clearValidators();
       cuentaControl.clearValidators();
@@ -312,14 +304,20 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
 
   obtenerClaseTipoPago(tipoPago: string): string {
     const tipo = this.tiposPago.find(t => t.id === tipoPago || t.nombre === tipoPago);
-    const color = tipo?.color || 'gray';
-    return `bg-${color}-100 text-${color}-800`;
+    const colores: { [key: string]: string } = {
+      'deposito': 'bg-blue-100 text-blue-800',
+      'transferencia': 'bg-green-100 text-green-800',
+      'cheque': 'bg-purple-100 text-purple-800',
+      'tarjeta': 'bg-yellow-100 text-yellow-800',
+      'anticipo': 'bg-orange-100 text-orange-800'
+    };
+    return colores[tipo?.id || 'default'] || 'bg-gray-100 text-gray-800';
   }
 
   requiereFormularioEspecifico(): boolean {
     const formaPago = this.formularioPrincipal.get('forma_pago')?.value;
     const tipoPago = this.tiposPago.find(t => t.nombre === formaPago || t.id === formaPago);
-    return tipoPago?.requiere_formulario || false;
+    return tipoPago?.requiereFormulario || false;
   }
 
   // === MANEJO DE FORMULARIOS ESPECÍFICOS ===
@@ -399,7 +397,7 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
     const formaPago = this.formularioPrincipal.get('forma_pago')?.value;
     const tipoPago = this.tiposPago.find(t => t.id === formaPago || t.nombre === formaPago);
 
-    if (tipoPago?.requiere_formulario) {
+    if (tipoPago?.requiereFormulario) {
       this.mostrarFormularioEspecifico.set(true);
     } else {
       // Para tipos simples, guardar directamente

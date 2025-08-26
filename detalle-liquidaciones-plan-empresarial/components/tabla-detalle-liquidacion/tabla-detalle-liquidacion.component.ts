@@ -1,7 +1,14 @@
+// ============================================================================
+// TABLA DETALLE LIQUIDACIÓN - CORREGIDO Y SIMPLIFICADO
+// ============================================================================
+
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ViewChild, ElementRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ServicioGeneralService } from '../../../../servicios/servicio-general.service';
+
+// USAR MODELO UNIFICADO
+import { TipoPago, TIPOS_PAGO_DEFAULT } from '../../../plan-empresarial-container/shared/models/plan-empresarial.models';
 
 @Component({
   selector: 'app-tabla-detalle-liquidizacion',
@@ -13,7 +20,7 @@ export class TablaDetalleLiquidizacionComponent {
   @Input() factura: any | null = null;
   @Input() detalles: any[] = [];
   @Input() agencias: any[] = [];
-  @Input() tiposPago: any[] = [];
+  @Input() tiposPago: TipoPago[] = TIPOS_PAGO_DEFAULT; // ✅ USAR MODELO UNIFICADO
   @Input() habilitarAcciones = false;
 
   @Output() agregar = new EventEmitter<void>();
@@ -53,7 +60,9 @@ export class TablaDetalleLiquidizacionComponent {
       'anticipo': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
     };
 
-    return colores[tipoPago] || 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+    // Buscar por ID del tipo
+    const tipo = this.tiposPago.find(t => t.id === tipoPago);
+    return colores[tipo?.id || 'default'] || 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
   }
 
   // ============================================

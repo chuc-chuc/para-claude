@@ -1,9 +1,11 @@
-// shared/models/plan-empresarial.models.ts
+// ============================================================================
+// MODELO ÚNICO CONSOLIDADO - Plan Empresarial
+// ============================================================================
 
 /** Moneda usada en facturas */
 export type Moneda = 'GTQ' | 'USD';
 
-/** Estados de liquidación (según tu backend) */
+/** Estados de liquidación (según backend) */
 export enum EstadoLiquidacionId {
     Pendiente = 1,
     Liquidado = 2,
@@ -32,10 +34,10 @@ export type TipoPagoId = 'deposito' | 'transferencia' | 'cheque' | 'tarjeta' | '
 export interface TipoPago {
     id: TipoPagoId;
     nombre: string;
-    requiereFormulario: boolean; // true = abre su propio formulario (depósito/transferencia/cheque)
+    requiereFormulario?: boolean; // true = abre su propio formulario
 }
 
-/** Catálogo por defecto (puedes sobreescribir desde el backend si quieres) */
+/** Catálogo por defecto */
 export const TIPOS_PAGO_DEFAULT: TipoPago[] = [
     { id: 'deposito', nombre: 'Por depósito a cuenta', requiereFormulario: true },
     { id: 'transferencia', nombre: 'Por transferencia', requiereFormulario: true },
@@ -44,7 +46,10 @@ export const TIPOS_PAGO_DEFAULT: TipoPago[] = [
     { id: 'anticipo', nombre: 'Por anticipo', requiereFormulario: false },
 ];
 
-/** Factura unificada que combina ambas definiciones */
+// ============================================================================
+// FACTURA UNIFICADA
+// ============================================================================
+
 export interface FacturaPE {
     id?: number;
     numero_dte: string;
@@ -75,7 +80,10 @@ export interface FacturaPE {
     detalles_liquidacion?: DetalleLiquidacionPE[];
 }
 
-/** Detalle de liquidación en la UI */
+// ============================================================================
+// DETALLE DE LIQUIDACIÓN
+// ============================================================================
+
 export interface DetalleLiquidacionPE {
     id?: number;
     numero_orden: string;
@@ -90,7 +98,10 @@ export interface DetalleLiquidacionPE {
     fecha_creacion?: string | null;
 }
 
-/** Orden del Plan Empresarial ya autorizada/activa para gestión */
+// ============================================================================
+// ÓRDENES PLAN EMPRESARIAL
+// ============================================================================
+
 export interface OrdenPlanEmpresarial {
     numeroOrden: number;
     total: number;
@@ -100,7 +111,59 @@ export interface OrdenPlanEmpresarial {
     anticiposPendientesOTardios: number;
 }
 
-// === Interfaces para payloads ===
+/** Tipos de anticipos */
+export enum TipoAnticipo {
+    CHEQUE = 'CHEQUE',
+    EFECTIVO = 'EFECTIVO',
+    TRANSFERENCIA = 'TRANSFERENCIA'
+}
+
+/** Estado respecto a su liquidación */
+export enum EstadoLiquidacion {
+    NO_LIQUIDADO = 'NO_LIQUIDADO',
+    RECIENTE = 'RECIENTE',
+    EN_TIEMPO = 'EN_TIEMPO',
+    FUERA_DE_TIEMPO = 'FUERA_DE_TIEMPO',
+    LIQUIDADO = 'LIQUIDADO'
+}
+
+export interface UltimoSeguimientoPE {
+    fechaSeguimiento: string | null;
+    idEstado: number | null;
+    nombreEstado: string | null;       // p.e. "pendiente"
+    descripcionEstado: string | null;  // p.e. "Solicitud creada, esperando autorización"
+    comentarioSolicitante: string | null;
+    fechaAutorizacion: string | null;
+    comentarioAutorizador: string | null;
+}
+
+/** Anticipo pendiente para una orden */
+export interface AnticipoPendientePE {
+    idSolicitud: number;
+    numeroOrden: number;
+    tipoAnticipo: TipoAnticipo;
+    monto: number;
+    fechaLiquidacion: string | null;
+    diasTranscurridos: number | null;
+    estadoLiquidacion: EstadoLiquidacion;
+
+    // campos útiles para UI/negocio
+    estadoSolicitud?: number | null;       // 1 = creada, 2 = pendiente, etc.
+    requiereAutorizacion?: boolean | null; // true/false
+    diasPermitidos?: number | null;        // ej. 26
+    motivoInclusion?: string | null;       // ej. "FUERA_DE_TIEMPO"
+    ultimoSeguimiento?: UltimoSeguimientoPE | null;
+}
+
+/** Resumen para cabecera/pie de tabla */
+export interface ResumenOrdenesPE {
+    totalOrdenes: number;
+    totalPendientes: number;
+}
+
+// ============================================================================
+// PAYLOADS PARA APIs
+// ============================================================================
 
 export interface RegistrarFacturaPayload {
     numero_dte: string;
@@ -118,7 +181,30 @@ export interface SolicitarAutorizacionPayload {
     dias_transcurridos: number;
 }
 
-// === Interfaces para respuestas del backend ===
+/** Payload para solicitar autorización de anticipo tardío */
+export interface SolicitudAutorizacionPayload {
+    id_solicitud: number;
+    justificacion: string;
+    tipo: 'autorizacion';
+}
+
+// ============================================================================
+// RESPUESTAS DE API
+// ============================================================================
+
+export interface ApiSuccessResponse<T = any> {
+    respuesta: 'success';
+    datos: T;
+    mensaje?: string | string[];
+}
+
+export interface ApiErrorResponse {
+    respuesta: 'error' | 'fail' | string;
+    mensaje?: string | string[];
+    error?: { mensaje?: string | string[] };
+}
+
+export type ApiResponse<T = any> = ApiSuccessResponse<T> | ApiErrorResponse;
 
 export interface BuscarFacturaResponse {
     respuesta: 'success' | 'error' | 'info';
@@ -133,7 +219,7 @@ export interface FacturaApi {
     numero_autorizacion: string;
     tipo_dte: string;
     nombre_emisor: string;
-    monto_total: string; // viene como string en tu backend
+    monto_total: string; // viene como string en el backend
     estado: string;
     estado_id: number;
     estado_liquidacion?: string;
@@ -176,3 +262,29 @@ export interface GenericApiResponse<T = any> {
     datos?: T;
     mensaje?: string;
 }
+
+// ============================================================================
+// ENDPOINTS
+// ============================================================================
+
+/** Endpoints usados por el feature */
+export const PLAN_EMPRESARIAL_ENDPOINTS = {
+    // Facturas
+    BUSCAR_FACTURA: 'facturas/buscarPorNumeroDte',
+    REGISTRAR_FACTURA: 'facturas/registro/facturaManual',
+    SOLICITAR_AUTORIZACION: 'facturas/solicitarAutorizacionTardanza',
+
+    // Liquidaciones
+    OBTENER_DETALLES: 'facturas/obtenerDetallesLiquidacion',
+    GUARDAR_DETALLE: 'facturas/liquidacion/guardarDetalle',
+    ELIMINAR_DETALLE: 'facturas/liquidacion/eliminarDetalle',
+
+    // Órdenes
+    LISTAR_ORDENES: 'contabilidad/obtenerOrdenesAutorizadas',
+    LISTAR_ANTICIPOS_PENDIENTES: 'contabilidad/obtenerSolicitudesPendientesAnticipos',
+    SOLICITAR_AUTORIZACION_ANTICIPO: 'contabilidad/solicitarAutorizacionAnticiposPendientes',
+
+    // Catálogos
+    OBTENER_AGENCIAS: 'facturas/buscarNombreLiquidacion',
+    OBTENER_TIPOS_PAGO: 'contabilidad/obtenerTiposPago'
+} as const;

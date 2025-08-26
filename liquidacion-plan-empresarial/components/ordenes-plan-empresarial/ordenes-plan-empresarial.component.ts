@@ -1,11 +1,16 @@
-// components/ordenes-plan-empresarial/ordenes-plan-empresarial.component.ts
+// ============================================================================
+// ÓRDENES PLAN EMPRESARIAL - CORREGIDO CON FACADE UNIFICADO
+// ============================================================================
+
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, signal, inject, DestroyRef, Output, EventEmitter } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-import { OrdenesPEFacade } from '../../services/ordenes-pe.facade';
-import { OrdenPlanEmpresarial, ResumenOrdenesPE } from '../../models/ordenes-pe.models';
 import { SolicitudAnticipoPEComponent } from '../solicitud-anticipo-pe/solicitud-anticipo-pe.component';
+
+// USAR FACADE Y MODELOS UNIFICADOS
+import { PlanEmpresarialContainerFacade } from '../../../plan-empresarial-container/plan-empresarial-container.facade';
+import { OrdenPlanEmpresarial, ResumenOrdenesPE } from '../../../plan-empresarial-container/shared/models/plan-empresarial.models';
 
 @Component({
   selector: 'app-ordenes-plan-empresarial',
@@ -30,7 +35,7 @@ export class OrdenesPlanEmpresarialComponent implements OnInit, OnDestroy {
   // DestroyRef para usar takeUntilDestroyed en un contexto de inyección
   private readonly destroyRef = inject(DestroyRef);
 
-  constructor(private facade: OrdenesPEFacade) { }
+  constructor(private facade: PlanEmpresarialContainerFacade) { } // ✅ FACADE UNIFICADO
 
   ngOnInit(): void {
     this.facade.ordenes$

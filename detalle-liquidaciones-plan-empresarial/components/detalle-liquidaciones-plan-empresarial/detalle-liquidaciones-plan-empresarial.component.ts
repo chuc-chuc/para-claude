@@ -139,23 +139,23 @@ export class DetalleLiquidizacionesPlanEmpresarialComponent implements OnInit {
     this.mostrarModalEliminar.set(true);
   }
 
+  // ✅ FUNCIÓN DE COPIA CORREGIDA
   onCopiar(index: number) {
     if (index < 0 || index >= this.detalles.length) return;
 
     const detalleOriginal = this.detalles[index];
-    const nuevoCopia = {
+    const copia = {
       ...detalleOriginal,
-      id: null, // Nuevo registro
-      descripcion: `[COPIA] ${detalleOriginal.descripcion}`
+      id: undefined // ✅ Solo quitar ID, NO modificar descripción
     };
 
-    // Agregar la copia a la lista local
-    this.detalles.push(nuevoCopia);
+    // ✅ Insertar después del original
+    this.detalles.splice(index + 1, 0, copia);
     this.recalcularTotales();
 
     // Si el detalle tiene datos completos, auto-guardarlo
-    if (this.esDetalleCompleto(nuevoCopia)) {
-      this.autoGuardarDetalle(nuevoCopia, this.detalles.length - 1);
+    if (this.esDetalleCompleto(copia)) {
+      this.autoGuardarDetalle(copia, index + 1);
     }
 
     this.copiarDetalle.emit(index);

@@ -1,16 +1,21 @@
+// ============================================================================
+// SOLICITUD ANTICIPO PE - CORREGIDO CON FACADE UNIFICADO
+// ============================================================================
+
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import Swal from 'sweetalert2';
 
-import { OrdenesPEFacade } from '../../services/ordenes-pe.facade';
+// USAR FACADE Y MODELOS UNIFICADOS
+import { PlanEmpresarialContainerFacade } from '../../../plan-empresarial-container/plan-empresarial-container.facade';
 import {
   AnticipoPendientePE,
   EstadoLiquidacion,
   SolicitudAutorizacionPayload,
   TipoAnticipo
-} from '../../models/ordenes-pe.models';
+} from '../../../plan-empresarial-container/shared/models/plan-empresarial.models';
 
 @Component({
   selector: 'app-solicitud-anticipo-pe',
@@ -48,7 +53,7 @@ export class SolicitudAnticipoPEComponent implements OnChanges {
     [EstadoLiquidacion.LIQUIDADO]: { texto: 'Liquidado', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300', dot: 'bg-emerald-500' }
   };
 
-  constructor(private facade: OrdenesPEFacade) {
+  constructor(private facade: PlanEmpresarialContainerFacade) { // ✅ FACADE UNIFICADO
     this.facade.anticipos$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(v => this.anticipos = v);
@@ -68,7 +73,7 @@ export class SolicitudAnticipoPEComponent implements OnChanges {
 
     if ((visibleChanged && this.isVisible && this.numeroOrden > 0) ||
       (numeroChanged && this.isVisible && this.numeroOrden > 0)) {
-      this.facade.cargarAnticipos(this.numeroOrden);
+      this.facade.cargarAnticipos(this.numeroOrden); // ✅ USAR MÉTODO DEL FACADE UNIFICADO
     }
   }
 
@@ -81,6 +86,7 @@ export class SolicitudAnticipoPEComponent implements OnChanges {
     return a.estadoLiquidacion === EstadoLiquidacion.EN_TIEMPO ||
       a.estadoLiquidacion === EstadoLiquidacion.FUERA_DE_TIEMPO;
   }
+
   /** Tardío por datos (motivo o días > permitidos) */
   private esFueraDeTiempoPorDatos(a: AnticipoPendientePE): boolean {
     const porMotivo = (a.motivoInclusion ?? '').toUpperCase() === 'FUERA_DE_TIEMPO';
@@ -119,9 +125,11 @@ export class SolicitudAnticipoPEComponent implements OnChanges {
   hayAnticipos(): boolean {
     return !this.cargando && this.anticipos.length > 0;
   }
+
   sinAnticipos(): boolean {
     return !this.cargando && this.anticipos.length === 0;
   }
+
   tardiosCount(): number {
     return this.anticipos.filter(a => this.esTardio(a)).length;
   }
@@ -145,7 +153,8 @@ export class SolicitudAnticipoPEComponent implements OnChanges {
       tipo: 'autorizacion'
     };
 
-    this.facade.solicitarAutorizacion(payload, () => {
+    // ✅ USAR MÉTODO DEL FACADE UNIFICADO
+    this.facade.solicitarAutorizacionAnticipo(payload, () => {
       this.facade.cargarAnticipos(this.numeroOrden);
       this.solicitudExitosa.emit();
     });

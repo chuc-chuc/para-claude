@@ -1,8 +1,13 @@
-// components/modal-solicitar-autorizacion/modal-solicitar-autorizacion.component.ts
+// ============================================================================
+// MODAL SOLICITAR AUTORIZACIÓN - CORREGIDO CON FACADE UNIFICADO
+// ============================================================================
+
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { FacturasPEFacade } from '../../services/facturas-pe.facade';
+
+// USAR FACADE Y MODELOS UNIFICADOS
+import { PlanEmpresarialContainerFacade } from '../../../plan-empresarial-container/plan-empresarial-container.facade';
 
 @Component({
   selector: 'app-modal-solicitar-autorizacion',
@@ -21,7 +26,7 @@ export class ModalSolicitarAutorizacionComponent implements OnInit {
   form!: FormGroup;
   enviando = false;
 
-  constructor(private facade: FacturasPEFacade) { }
+  constructor(private facade: PlanEmpresarialContainerFacade) { } // ✅ FACADE UNIFICADO
 
   ngOnInit(): void {
     this.form = new FormGroup({
@@ -37,6 +42,7 @@ export class ModalSolicitarAutorizacionComponent implements OnInit {
     if (this.form.invalid || this.enviando) return;
     this.enviando = true;
 
+    // ✅ USAR MÉTODO DEL FACADE UNIFICADO
     this.facade.solicitarAutorizacion(
       {
         numero_dte: this.numeroDte,

@@ -1,3 +1,7 @@
+// ============================================================================
+// COMPONENTE CONTENEDOR PRINCIPAL - GETTERS CORREGIDOS
+// ============================================================================
+
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, OnDestroy, inject, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -7,6 +11,8 @@ import { OrdenesPlanEmpresarialComponent } from '../liquidacion-plan-empresarial
 import { DetalleFacturaPEComponent } from '../facturas-plan-empresarial/components/detalle-factura/detalle-factura.component';
 import { DetalleLiquidizacionesPlanEmpresarialComponent } from '../detalle-liquidaciones-plan-empresarial/components/detalle-liquidaciones-plan-empresarial/detalle-liquidaciones-plan-empresarial.component';
 import { PlanEmpresarialContainerFacade } from './plan-empresarial-container.facade';
+
+// USAR MODELO UNIFICADO
 import { FacturaPE, OrdenPlanEmpresarial, DetalleLiquidacionPE } from './shared/models/plan-empresarial.models';
 
 @Component({
@@ -23,7 +29,7 @@ import { FacturaPE, OrdenPlanEmpresarial, DetalleLiquidacionPE } from './shared/
 export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
 
-  // Streams del facade
+  // Streams del facade unificado
   readonly ordenes$: Observable<OrdenPlanEmpresarial[]>;
   readonly cargandoOrdenes$: Observable<boolean>;
 
@@ -41,6 +47,10 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
   // Estado para sincronizar búsqueda entre componentes
   currentSearchText: string = '';
 
+  // ✅ VARIABLES LOCALES PARA ACCESO SINCRÓNICO
+  private facturaActualValue: FacturaPE | null = null;
+  private detallesActualesValue: DetalleLiquidacionPE[] = [];
+
   // Estado derivado para liquidaciones (solo datos necesarios para la tabla)
   readonly datosLiquidacion$: Observable<{
     factura: FacturaPE | null;
@@ -55,6 +65,7 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
   }>;
 
   constructor(private facade: PlanEmpresarialContainerFacade) {
+    // Inicializar todos los streams
     this.ordenes$ = this.facade.ordenes$;
     this.cargandoOrdenes$ = this.facade.cargandoOrdenes$;
 
@@ -69,6 +80,20 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
     this.tiposPago$ = this.facade.tiposPago$;
     this.total$ = this.facade.total$;
 
+    // ✅ SUSCRIBIRSE A CAMBIOS PARA MANTENER VALORES LOCALES
+    this.factura$.pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(factura => {
+      this.facturaActualValue = factura;
+    });
+
+    this.detallesLiquidacion$.pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(detalles => {
+      this.detallesActualesValue = detalles;
+    });
+
+    // Combinar streams para datos de liquidación
     this.datosLiquidacion$ = combineLatest([
       this.factura$,
       this.detallesLiquidacion$,
@@ -112,7 +137,10 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
     // Limpieza automática con takeUntilDestroyed
   }
 
-  // === Eventos desde el componente de facturas ===
+  // ============================================================================
+  // EVENTOS DESDE EL COMPONENTE DE FACTURAS
+  // ============================================================================
+
   onFacturaBuscada(numeroDte: string): void {
     this.currentSearchText = numeroDte;
     this.facade.buscarFactura(numeroDte);
@@ -124,15 +152,20 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
 
   onLiquidarFactura(): void {
     console.log('Liquidar factura solicitado');
+    // Aquí puedes agregar lógica adicional si es necesaria
   }
 
-  // === Eventos para la tabla de liquidaciones ===
+  // ============================================================================
+  // EVENTOS PARA LA TABLA DE LIQUIDACIONES
+  // ============================================================================
+
   onAgregarDetalle(): void {
     this.facade.agregarDetalle();
   }
 
   onEditarDetalle(index: number): void {
     // El modal es manejado dentro del componente de liquidaciones
+    console.log('Editar detalle en índice:', index);
   }
 
   onEliminarDetalle(index: number): void {
@@ -147,13 +180,19 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
     this.facade.guardarTodosLosDetalles().pipe(
       takeUntilDestroyed(this.destroyRef)
     ).subscribe(success => {
-      if (success) console.log('Detalles guardados exitosamente');
+      if (success) {
+        console.log('Detalles guardados exitosamente');
+      }
     });
   }
 
   onCambiarFormaPago(event: { index: number; tipo: string }): void {
     this.facade.cambiarFormaPago(event.index, event.tipo);
   }
+
+  // ============================================================================
+  // ACCIONES ADICIONALES
+  // ============================================================================
 
   onLimpiarDatos(): void {
     this.currentSearchText = '';
@@ -162,5 +201,49 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
 
   onRefrescarOrdenes(): void {
     this.facade.cargarOrdenes();
+  }
+
+  // ============================================================================
+  // GETTERS PÚBLICOS - CORREGIDOS ✅
+  // ============================================================================
+
+  get facturaActual(): FacturaPE | null {
+    return this.facturaActualValue; // ✅ Usar variable local sincronizada
+  }
+
+  get detallesActuales(): DetalleLiquidacionPE[] {
+    return this.detallesActualesValue; // ✅ Usar variable local sincronizada
+  }
+
+  // ============================================================================
+  // MÉTODOS PÚBLICOS ADICIONALES
+  // ============================================================================
+
+  /**
+   * Obtener factura actual de forma reactiva
+   */
+  obtenerFacturaActual(): Observable<FacturaPE | null> {
+    return this.facade.factura$;
+  }
+
+  /**
+   * Obtener detalles actuales de forma reactiva
+   */
+  obtenerDetallesActuales(): Observable<DetalleLiquidacionPE[]> {
+    return this.facade.detallesLiquidacion$;
+  }
+
+  /**
+   * Verificar si hay una factura cargada
+   */
+  tieneFacturaCargada(): boolean {
+    return this.facturaActualValue !== null;
+  }
+
+  /**
+   * Obtener total actual sin suscripción
+   */
+  obtenerTotalActual(): number {
+    return this.detallesActualesValue.reduce((sum, detalle) => sum + (detalle.monto || 0), 0);
   }
 }

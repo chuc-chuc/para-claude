@@ -1,14 +1,19 @@
-// facturas-plan-empresarial/components/detalle-factura/detalle-factura.component.ts
+// ============================================================================
+// DETALLE FACTURA - COMPLETO CORREGIDO
+// ============================================================================
+
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, Output, EventEmitter, OnDestroy, Input } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Observable, Subject, takeUntil } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
-import { FacturasPEFacade } from '../../services/facturas-pe.facade';
-import { AutorizacionEstado, EstadoLiquidacionPE, FacturaPE } from '../../models/facturas-pe.models';
 import { ModalRegistrarFacturaComponent } from '../modal-registrar-factura/modal-registrar-factura.component';
 import { ModalSolicitarAutorizacionComponent } from '../modal-solicitar-autorizacion/modal-solicitar-autorizacion.component';
 import { DiasHabilesService, ValidacionVencimiento } from '../../../../servicios/dias-habiles.service';
+
+// USAR FACADE Y MODELO UNIFICADOS
+import { PlanEmpresarialContainerFacade } from '../../../plan-empresarial-container/plan-empresarial-container.facade';
+import { AutorizacionEstado, EstadoLiquidacionPE, FacturaPE } from '../../../plan-empresarial-container/shared/models/plan-empresarial.models';
 
 @Component({
   selector: 'app-detalle-factura-pe',
@@ -45,13 +50,13 @@ export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   constructor(
-    private facade: FacturasPEFacade,
+    private facade: PlanEmpresarialContainerFacade,
     private diasHabilesService: DiasHabilesService
   ) { }
 
   ngOnInit(): void {
     this.factura$ = this.facade.factura$;
-    this.loading$ = this.facade.loading$;
+    this.loading$ = this.facade.loadingFactura$;
 
     // Suscribirse a cambios de factura para notificar al padre y validar vencimiento
     this.factura$.pipe(
@@ -103,8 +108,8 @@ export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
   }
 
   private buscarFacturaInterno(numeroDte: string): void {
-    // Búsqueda interna usando el facade
-    this.facade.buscarPorDte(numeroDte);
+    // Búsqueda usando facade unificado
+    this.facade.buscarFactura(numeroDte);
 
     // Notificar al padre
     this.buscarFactura.emit(numeroDte);
@@ -213,7 +218,7 @@ export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
 
   limpiarBusqueda(): void {
     this.searchControl.setValue('', { emitEvent: false });
-    this.facade.buscarPorDte('');
+    this.facade.buscarFactura('');
   }
 
   // === UTILIDADES ===
