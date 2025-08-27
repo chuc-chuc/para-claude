@@ -239,3 +239,4 @@ export class DetalleFacturaPEComponent implements OnInit, OnDestroy {
         f.estado_autorizacion === AutorizacionEstado.Rechazada);
   }
 }
+// ===========

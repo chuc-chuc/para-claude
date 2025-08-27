@@ -1,15 +1,17 @@
 // ============================================================================
-// FACADE OPTIMIZADO - PLAN EMPRESARIAL
+// FACADE EXPANDIDO - PLAN EMPRESARIAL - SIN DUPLICACIONES
 // ============================================================================
 
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, of, switchMap, tap, map, catchError, finalize, share } from 'rxjs';
+import { BehaviorSubject, Observable, of, switchMap, tap, map, catchError, finalize, share, forkJoin, from } from 'rxjs';
 import { ServicioGeneralService } from '../../servicios/servicio-general.service';
 import {
-    OrdenPlanEmpresarial, FacturaPE, DetalleLiquidacionPE, TIPOS_PAGO_DEFAULT, TipoPago,
+    OrdenPlanEmpresarial, FacturaPE, DetalleLiquidacionPE, DetalleLiquidacionCompletoPE,
+    TIPOS_PAGO_DEFAULT, TipoPago, BancoPE, TipoCuentaPE, AgenciaPE, OrdenAutorizadaPE,
     AutorizacionEstado, EstadoLiquidacionTexto, EstadoLiquidacionId, PLAN_EMPRESARIAL_ENDPOINTS,
     RegistrarFacturaPayload, SolicitarAutorizacionPayload, AnticipoPendientePE,
-    SolicitudAutorizacionPayload, ResumenOrdenesPE
+    SolicitudAutorizacionPayload, ResumenOrdenesPE, GuardarDetalleLiquidacionPayload,
+    ValidadorMonto, EstadoDetalle
 } from './shared/models/plan-empresarial.models';
 
 @Injectable({ providedIn: 'root' })
@@ -26,8 +28,19 @@ export class PlanEmpresarialContainerFacade {
     private readonly _anticipos$ = new BehaviorSubject<AnticipoPendientePE[]>([]);
     private readonly _cargandoAnticipos$ = new BehaviorSubject<boolean>(false);
     private readonly _enviandoSolicitud$ = new BehaviorSubject<boolean>(false);
-    private readonly _agencias$ = new BehaviorSubject<{ id: number; nombre_liquidacion: string }[]>([]);
+
+    // === CATÁLOGOS CENTRALIZADOS ===
+    private readonly _agencias$ = new BehaviorSubject<AgenciaPE[]>([]);
     private readonly _tiposPago$ = new BehaviorSubject<TipoPago[]>(TIPOS_PAGO_DEFAULT);
+    private readonly _bancos$ = new BehaviorSubject<BancoPE[]>([]);
+    private readonly _tiposCuenta$ = new BehaviorSubject<TipoCuentaPE[]>([]);
+    private readonly _ordenesAutorizadas$ = new BehaviorSubject<OrdenAutorizadaPE[]>([]);
+
+    // === LOADING STATES PARA CATÁLOGOS ===
+    private readonly _cargandoCatalogos$ = new BehaviorSubject<boolean>(false);
+    private readonly _cargandoBancos$ = new BehaviorSubject<boolean>(false);
+    private readonly _cargandoTiposCuenta$ = new BehaviorSubject<boolean>(false);
+    private readonly _cargandoOrdenesAutorizadas$ = new BehaviorSubject<boolean>(false);
 
     // === CACHE ===
     private ultimaBusquedaDte = '';
@@ -44,8 +57,20 @@ export class PlanEmpresarialContainerFacade {
     readonly anticipos$ = this._anticipos$.asObservable();
     readonly cargandoAnticipos$ = this._cargandoAnticipos$.asObservable();
     readonly enviandoSolicitud$ = this._enviandoSolicitud$.asObservable();
+
+    // === CATÁLOGOS PÚBLICOS ===
     readonly agencias$ = this._agencias$.asObservable();
     readonly tiposPago$ = this._tiposPago$.asObservable();
+    readonly bancos$ = this._bancos$.asObservable();
+    readonly tiposCuenta$ = this._tiposCuenta$.asObservable();
+    readonly ordenesAutorizadas$ = this._ordenesAutorizadas$.asObservable();
+
+    // === LOADING STATES PÚBLICOS ===
+    readonly cargandoCatalogos$ = this._cargandoCatalogos$.asObservable();
+    readonly cargandoBancos$ = this._cargandoBancos$.asObservable();
+    readonly cargandoTiposCuenta$ = this._cargandoTiposCuenta$.asObservable();
+    readonly cargandoOrdenesAutorizadas$ = this._cargandoOrdenesAutorizadas$.asObservable();
+
     readonly total$ = this.detallesLiquidacion$.pipe(
         map(detalles => detalles.reduce((acc, d) => acc + (Number(d.monto) || 0), 0))
     );
@@ -57,6 +82,10 @@ export class PlanEmpresarialContainerFacade {
     getDetallesActuales(): DetalleLiquidacionPE[] { return this._detallesLiquidacion$.value; }
     getOrdenesActuales(): OrdenPlanEmpresarial[] { return this._ordenes$.value; }
     getAnticiposActuales(): AnticipoPendientePE[] { return this._anticipos$.value; }
+    getAgenciasActuales(): AgenciaPE[] { return this._agencias$.value; }
+    getBancosActuales(): BancoPE[] { return this._bancos$.value; }
+    getTiposCuentaActuales(): TipoCuentaPE[] { return this._tiposCuenta$.value; }
+    getOrdenesAutorizadasActuales(): OrdenAutorizadaPE[] { return this._ordenesAutorizadas$.value; }
     tieneFactura(): boolean { return this._factura$.value !== null; }
     getTotalActual(): number { return this._detallesLiquidacion$.value.reduce((acc, d) => acc + (Number(d.monto) || 0), 0); }
 
@@ -73,6 +102,45 @@ export class PlanEmpresarialContainerFacade {
             catchError(() => of([] as OrdenPlanEmpresarial[])),
             finalize(() => this._cargandoOrdenes$.next(false))
         ).subscribe(lista => this._ordenes$.next(lista));
+    }
+
+    // ============================================================================
+    // ÓRDENES AUTORIZADAS (CONSOLIDADO DESDE MODAL)
+    // ============================================================================
+    cargarOrdenesAutorizadas(): Observable<OrdenAutorizadaPE[]> {
+        this._cargandoOrdenesAutorizadas$.next(true);
+
+        return this.api.query({
+            ruta: PLAN_EMPRESARIAL_ENDPOINTS.LISTAR_ORDENES,
+            tipo: 'get'
+        }).pipe(
+            map((res: any) => {
+                if (res.respuesta === 'success') {
+                    // Filtrar órdenes que NO tengan anticipos pendientes o tardíos
+                    const ordenes: OrdenAutorizadaPE[] = res.datos
+                        .filter((orden: any) => orden.anticipos_pendientes_o_tardios === 0)
+                        .map((orden: any) => ({
+                            id: orden.numero_orden,
+                            numero_orden: orden.numero_orden.toString(),
+                            estado: 'autorizada',
+                            total: parseFloat(orden.total),
+                            total_liquidado: parseFloat(orden.monto_liquidado) || 0,
+                            monto_pendiente: parseFloat(orden.total) - (parseFloat(orden.monto_liquidado) || 0),
+                            puede_finalizar: (parseFloat(orden.total) - (parseFloat(orden.monto_liquidado) || 0)) <= 0,
+                            anticipos_pendientes_o_tardios: orden.anticipos_pendientes_o_tardios || 0
+                        }));
+
+                    this._ordenesAutorizadas$.next(ordenes);
+                    return ordenes;
+                }
+                return [];
+            }),
+            catchError((err) => {
+                this.api.mensajeServidor('error', 'No se pudieron cargar las órdenes autorizadas', 'Error');
+                return of([]);
+            }),
+            finalize(() => this._cargandoOrdenesAutorizadas$.next(false))
+        );
     }
 
     // ============================================================================
@@ -183,7 +251,7 @@ export class PlanEmpresarialContainerFacade {
 
         if (detalleOriginal.id) {
             this.api.query({
-                ruta: 'contabilidad/copiarDetalleLiquidacion',
+                ruta: PLAN_EMPRESARIAL_ENDPOINTS.COPIAR_DETALLE,
                 tipo: 'post',
                 body: { id: detalleOriginal.id }
             }).pipe(
@@ -209,6 +277,29 @@ export class PlanEmpresarialContainerFacade {
         }
     }
 
+    guardarDetalle(payload: GuardarDetalleLiquidacionPayload): Observable<boolean> {
+        return this.api.query({
+            ruta: PLAN_EMPRESARIAL_ENDPOINTS.GUARDAR_DETALLE,
+            tipo: 'post',
+            body: payload
+        }).pipe(
+            map((response: any) => {
+                if (response.respuesta === 'success') {
+                    this.api.mensajeServidor('success', 'Detalle guardado correctamente', 'Éxito');
+                    this.recargarDetalles();
+                    return true;
+                } else {
+                    this.api.mensajeServidor('error', response.mensaje || 'Error al guardar detalle', 'Error');
+                    return false;
+                }
+            }),
+            catchError(() => {
+                this.api.mensajeServidor('error', 'Error de conexión al guardar detalle', 'Error');
+                return of(false);
+            })
+        );
+    }
+
     actualizarDetalle(index: number, patch: Partial<DetalleLiquidacionPE>): void {
         const list = [...this._detallesLiquidacion$.value];
         if (index < 0 || index >= list.length) return;
@@ -221,7 +312,7 @@ export class PlanEmpresarialContainerFacade {
             if (patch.agencia !== undefined) payload.agencia = patch.agencia;
 
             this.api.query({
-                ruta: 'contabilidad/actualizarMontoAgencia',
+                ruta: PLAN_EMPRESARIAL_ENDPOINTS.ACTUALIZAR_MONTO_AGENCIA,
                 tipo: 'post',
                 body: payload
             }).pipe(
@@ -231,8 +322,10 @@ export class PlanEmpresarialContainerFacade {
                 })
             ).subscribe((res: any) => {
                 if (res?.respuesta === 'success') {
+                    this.api.mensajeServidor('success', 'Detalle actualizado correctamente', 'Éxito');
                     list[index] = { ...list[index], ...patch };
                     this._detallesLiquidacion$.next(list);
+                    this.recargarDetalles();
                 }
             });
         } else {
@@ -254,7 +347,7 @@ export class PlanEmpresarialContainerFacade {
 
         this._savingDetalles$.next(true);
         this.api.query({
-            ruta: 'contabilidad/eliminarDetalleLiquidacion',
+            ruta: PLAN_EMPRESARIAL_ENDPOINTS.ELIMINAR_DETALLE,
             tipo: 'post',
             body: { id: item.id }
         }).pipe(
@@ -287,40 +380,118 @@ export class PlanEmpresarialContainerFacade {
         this._savingDetalles$.next(true);
         const peticiones = detallesSinId.map(d =>
             this.api.query({
-                ruta: 'contabilidad/guardarDetalleLiquidacion',
+                ruta: PLAN_EMPRESARIAL_ENDPOINTS.GUARDAR_DETALLE,
                 tipo: 'post',
                 body: this.mapDetalleToPayload(d, factura.numero_dte)
             })
         );
 
-        return new Observable<boolean>(observer => {
-            Promise.all(peticiones.map(req => req.toPromise()))
-                .then((resultados) => {
-                    const exitosos = resultados.filter((r: any) => r?.respuesta === 'success').length;
-                    const errores = resultados.length - exitosos;
+        return forkJoin(peticiones).pipe(
+            map((resultados) => {
+                const exitosos = resultados.filter((r: any) => r?.respuesta === 'success').length;
+                const errores = resultados.length - exitosos;
 
-                    if (errores === 0) {
-                        this.api.mensajeServidor('success', `${exitosos} detalles guardados correctamente`);
-                        this.recargarDetalles();
-                        observer.next(true);
-                    } else {
-                        this.api.mensajeServidor('warning', `${exitosos} guardados, ${errores} con errores`);
-                        observer.next(false);
-                    }
-                })
-                .catch(() => {
-                    this.api.mensajeServidor('error', 'Error al guardar detalles');
-                    observer.next(false);
-                })
-                .finally(() => {
-                    this._savingDetalles$.next(false);
-                    observer.complete();
-                });
-        });
+                if (errores === 0) {
+                    this.api.mensajeServidor('success', `${exitosos} detalles guardados correctamente`);
+                    this.recargarDetalles();
+                    return true;
+                } else {
+                    this.api.mensajeServidor('warning', `${exitosos} guardados, ${errores} con errores`);
+                    return false;
+                }
+            }),
+            catchError(() => {
+                this.api.mensajeServidor('error', 'Error al guardar detalles');
+                return of(false);
+            }),
+            finalize(() => this._savingDetalles$.next(false))
+        );
     }
 
     cambiarFormaPago(index: number, tipo: string): void {
         this.actualizarDetalle(index, { forma_pago: tipo });
+    }
+
+    obtenerDetalleCompleto(id: number): Observable<any> {
+        return this.api.query({
+            ruta: PLAN_EMPRESARIAL_ENDPOINTS.OBTENER_DETALLE_COMPLETO,
+            tipo: 'post',
+            body: { id }
+        });
+    }
+
+    // ============================================================================
+    // VALIDACIONES CENTRALIZADAS
+    // ============================================================================
+
+    validarMonto(index: number, nuevoMonto: number): ValidadorMonto {
+        const factura = this._factura$.value;
+        if (!factura?.monto_total) {
+            return { esValido: true };
+        }
+
+        const detalles = this._detallesLiquidacion$.value;
+        let totalSinItem = 0;
+
+        detalles.forEach((detalle, i) => {
+            if (i !== index) {
+                totalSinItem += parseFloat(String(detalle.monto)) || 0;
+            }
+        });
+
+        const nuevoTotal = totalSinItem + nuevoMonto;
+        const montoFactura = parseFloat(String(factura.monto_total));
+        const montoDisponible = montoFactura - totalSinItem;
+
+        if (nuevoMonto <= 0) {
+            return {
+                esValido: false,
+                mensaje: 'El monto debe ser mayor a 0'
+            };
+        }
+
+        if (nuevoTotal > montoFactura) {
+            return {
+                esValido: false,
+                mensaje: `El monto excede lo disponible. Máximo disponible: Q${montoDisponible.toFixed(2)}`,
+                montoDisponible
+            };
+        }
+
+        return { esValido: true, montoDisponible };
+    }
+
+    validarEstadoDetalle(detalle: DetalleLiquidacionPE): EstadoDetalle {
+        const camposFaltantes: string[] = [];
+
+        if (!detalle.numero_orden?.trim()) camposFaltantes.push('Número de orden');
+        if (!detalle.agencia?.trim()) camposFaltantes.push('Agencia');
+        if (!detalle.descripcion?.trim()) camposFaltantes.push('Descripción');
+        if (!detalle.monto || detalle.monto <= 0) camposFaltantes.push('Monto');
+        if (!detalle.forma_pago?.trim()) camposFaltantes.push('Forma de pago');
+
+        return {
+            esCompleto: camposFaltantes.length === 0,
+            camposFaltantes,
+            requiereGuardado: !detalle.id
+        };
+    }
+
+    calcularMontoDisponible(excluirIndice?: number): number {
+        const factura = this._factura$.value;
+        if (!factura?.monto_total) return 0;
+
+        const detalles = this._detallesLiquidacion$.value;
+        let totalUsado = 0;
+
+        detalles.forEach((detalle, i) => {
+            if (i !== excluirIndice) {
+                totalUsado += parseFloat(String(detalle.monto)) || 0;
+            }
+        });
+
+        const montoFactura = parseFloat(String(factura.monto_total));
+        return Math.max(0, montoFactura - totalUsado);
     }
 
     // ============================================================================
@@ -361,51 +532,102 @@ export class PlanEmpresarialContainerFacade {
     }
 
     // ============================================================================
-    // CATÁLOGOS
+    // CATÁLOGOS CENTRALIZADOS
     // ============================================================================
     cargarCatalogos(): void {
-        // Agencias
-        this.api.query({
-            ruta: 'contabilidad/buscarNombreLiquidacion',
+        this._cargandoCatalogos$.next(true);
+        forkJoin([
+            this.cargarAgencias(),
+            this.cargarTiposPago(),
+            this.cargarBancos(),
+            this.cargarTiposCuenta(),
+            this.cargarOrdenesAutorizadas()
+        ]).pipe(
+            finalize(() => this._cargandoCatalogos$.next(false))
+        ).subscribe();
+    }
+
+    private cargarAgencias(): Observable<AgenciaPE[]> {
+        return this.api.query({
+            ruta: PLAN_EMPRESARIAL_ENDPOINTS.OBTENER_AGENCIAS,
             tipo: 'get'
         }).pipe(
-            catchError(() => of({ respuesta: 'error', datos: [] }))
-        ).subscribe((res: any) => {
-            if (res.respuesta === 'success' && Array.isArray(res.datos)) {
-                const agencias = res.datos.map((item: any) => ({
-                    id: item.id || 0,
-                    nombre_liquidacion: item.nombre_liquidacion || 'Sin nombre'
-                }));
-                this._agencias$.next(agencias);
-            }
-        });
+            tap((res: any) => {
+                if (res.respuesta === 'success' && Array.isArray(res.datos)) {
+                    const agencias: AgenciaPE[] = res.datos.map((item: any) => ({
+                        id: item.id || 0,
+                        nombre_liquidacion: item.nombre_liquidacion || 'Sin nombre'
+                    }));
+                    this._agencias$.next(agencias);
+                }
+            }),
+            map((res: any) => res.respuesta === 'success' ? res.datos : []),
+            catchError(() => of([]))
+        );
+    }
 
-        // Tipos de pago
-        this.api.query({
-            ruta: 'contabilidad/obtenerTiposPago',
+    private cargarTiposPago(): Observable<TipoPago[]> {
+        return this.api.query({
+            ruta: PLAN_EMPRESARIAL_ENDPOINTS.OBTENER_TIPOS_PAGO,
             tipo: 'get'
         }).pipe(
-            catchError(() => of({ respuesta: 'error', datos: [] }))
-        ).subscribe((res: any) => {
-            if (res.respuesta === 'success' && Array.isArray(res.datos)) {
-                const tiposBackend: TipoPago[] = res.datos.map((item: any) => ({
-                    id: item.id || item.tipo || 'deposito',
-                    nombre: item.nombre || item.descripcion || 'Sin nombre',
-                    requiereFormulario: item.requiere_formulario || false
-                }));
+            tap((res: any) => {
+                if (res.respuesta === 'success' && Array.isArray(res.datos)) {
+                    const tiposBackend: TipoPago[] = res.datos.map((item: any) => ({
+                        id: item.id || item.tipo || 'deposito',
+                        nombre: item.nombre || item.descripcion || 'Sin nombre',
+                        requiereFormulario: item.requiere_formulario || false
+                    }));
 
-                const tiposCombinados = [...TIPOS_PAGO_DEFAULT];
-                tiposBackend.forEach((tipo: TipoPago) => {
-                    if (!tiposCombinados.find(t => t.id === tipo.id)) {
-                        tiposCombinados.push(tipo);
-                    }
-                });
+                    const tiposCombinados = [...TIPOS_PAGO_DEFAULT];
+                    tiposBackend.forEach((tipo: TipoPago) => {
+                        if (!tiposCombinados.find(t => t.id === tipo.id)) {
+                            tiposCombinados.push(tipo);
+                        }
+                    });
 
-                this._tiposPago$.next(tiposCombinados);
-            } else {
-                this._tiposPago$.next(TIPOS_PAGO_DEFAULT);
-            }
-        });
+                    this._tiposPago$.next(tiposCombinados);
+                } else {
+                    this._tiposPago$.next(TIPOS_PAGO_DEFAULT);
+                }
+            }),
+            map((res: any) => res.respuesta === 'success' ? res.datos : TIPOS_PAGO_DEFAULT),
+            catchError(() => of(TIPOS_PAGO_DEFAULT))
+        );
+    }
+
+    private cargarBancos(): Observable<BancoPE[]> {
+        this._cargandoBancos$.next(true);
+        return this.api.query({
+            ruta: PLAN_EMPRESARIAL_ENDPOINTS.LISTA_BANCOS,
+            tipo: 'get'
+        }).pipe(
+            tap((res: any) => {
+                if (res.respuesta === 'success' && Array.isArray(res.datos)) {
+                    this._bancos$.next(res.datos);
+                }
+            }),
+            map((res: any) => res.respuesta === 'success' ? res.datos : []),
+            catchError(() => of([])),
+            finalize(() => this._cargandoBancos$.next(false))
+        );
+    }
+
+    private cargarTiposCuenta(): Observable<TipoCuentaPE[]> {
+        this._cargandoTiposCuenta$.next(true);
+        return this.api.query({
+            ruta: PLAN_EMPRESARIAL_ENDPOINTS.LISTA_TIPOS_CUENTA,
+            tipo: 'get'
+        }).pipe(
+            tap((res: any) => {
+                if (res.respuesta === 'success' && Array.isArray(res.datos)) {
+                    this._tiposCuenta$.next(res.datos);
+                }
+            }),
+            map((res: any) => res.respuesta === 'success' ? res.datos : []),
+            catchError(() => of([])),
+            finalize(() => this._cargandoTiposCuenta$.next(false))
+        );
     }
 
     // ============================================================================
@@ -512,11 +734,14 @@ export class PlanEmpresarialContainerFacade {
             banco: api.banco ?? '',
             cuenta: api.cuenta ?? '',
             factura_id: api.factura_id ?? null,
-            fecha_creacion: api.fecha_creacion ?? null
+            fecha_creacion: api.fecha_creacion ?? null,
+            fecha_actualizacion: api.fecha_actualizacion ?? null,
+            datos_especificos: api.datos_especificos ?? null,
+            informacion_adicional: api.informacion_adicional ?? null
         };
     }
 
-    private mapDetalleToPayload(detalle: DetalleLiquidacionPE, numeroFactura: string) {
+    private mapDetalleToPayload(detalle: DetalleLiquidacionPE, numeroFactura: string): GuardarDetalleLiquidacionPayload {
         return {
             id: detalle.id ?? null,
             numero_factura: numeroFactura,

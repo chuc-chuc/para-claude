@@ -16,7 +16,7 @@
                 </app-ordenes-plan-empresarial>
             </div>
 
-            <!-- Panel de Búsqueda / Detalle de Factura (completo aquí) -->
+            <!-- Panel de Búsqueda / Detalle de Factura -->
             <div class="space-y-4">
                 <app-detalle-factura-pe [searchText]="currentSearchText" (buscarFactura)="onFacturaBuscada($event)"
                     (searchTextChange)="onSearchTextChanged($event)" (liquidarFactura)="onLiquidarFactura()">
@@ -24,17 +24,11 @@
             </div>
         </div>
 
-        <!-- Sección Inferior: SOLO la tabla de liquidaciones -->
-        <ng-container *ngIf="datosLiquidacion$ | async as datos">
-            <ng-container *ngIf="datos.factura; else sinFactura">
-                <app-detalle-liquidizaciones-pe [factura]="datos.factura" [detalles]="datos.detalles"
-                    [agencias]="datos.agencias" [tiposPago]="datos.tiposPago" [total]="datos.total"
-                    [montoFactura]="datos.factura.monto_total || 0" [isLoading]="datos.isLoading"
-                    [isSaving]="datos.isSaving" [habilitarAcciones]="datos.habilitarAcciones"
-                    [estadoMonto]="datos.estadoMonto" (agregarDetalle)="onAgregarDetalle()"
-                    (editarDetalle)="onEditarDetalle($event)" (eliminarDetalle)="onEliminarDetalle($event)"
-                    (copiarDetalle)="onCopiarDetalle($event)" (guardarTodo)="onGuardarTodo()"
-                    (cambiarFormaPago)="onCambiarFormaPago($event)">
+        <!-- Sección Inferior: Tabla de liquidaciones -->
+        <ng-container *ngIf="factura$ | async as factura">
+            <ng-container *ngIf="factura; else sinFactura">
+                <!-- El componente de liquidaciones ahora maneja todo internamente -->
+                <app-detalle-liquidizaciones-pe>
                 </app-detalle-liquidizaciones-pe>
             </ng-container>
             <ng-template #sinFactura>

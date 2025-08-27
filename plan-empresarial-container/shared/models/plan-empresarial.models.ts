@@ -1,5 +1,5 @@
 // ============================================================================
-// MODELO ÚNICO CONSOLIDADO - Plan Empresarial - CORREGIDO
+// MODELO ÚNICO CONSOLIDADO - Plan Empresarial - EXPANDIDO CON CATÁLOGOS
 // ============================================================================
 
 /** Moneda usada en facturas */
@@ -45,6 +45,40 @@ export const TIPOS_PAGO_DEFAULT: TipoPago[] = [
     { id: 'tarjeta', nombre: 'Por tarjeta de crédito', requiereFormulario: false },
     { id: 'anticipo', nombre: 'Por anticipo', requiereFormulario: false },
 ];
+
+// ============================================================================
+// CATÁLOGOS CONSOLIDADOS (PREVIAMENTE DUPLICADOS EN COMPONENTES)
+// ============================================================================
+
+/** Banco del sistema */
+export interface BancoPE {
+    id_banco: number;
+    nombre: string;
+}
+
+/** Tipo de cuenta bancaria */
+export interface TipoCuentaPE {
+    id_tipo_cuenta: number;
+    nombre: string;
+}
+
+/** Agencia para liquidaciones */
+export interface AgenciaPE {
+    id: number;
+    nombre_liquidacion: string;
+}
+
+/** Orden autorizada para liquidación */
+export interface OrdenAutorizadaPE {
+    id: number;
+    numero_orden: string;
+    estado: string;
+    total: number;
+    total_liquidado?: number;
+    monto_pendiente?: number;
+    puede_finalizar?: boolean;
+    anticipos_pendientes_o_tardios?: number;
+}
 
 // ============================================================================
 // FACTURA UNIFICADA
@@ -96,6 +130,51 @@ export interface DetalleLiquidacionPE {
     cuenta: string;
     factura_id?: number | null;
     fecha_creacion?: string | null;
+    fecha_actualizacion?: string | null;
+
+    // Campos para edición inline
+    _editandoMonto?: boolean;
+    _montoTemp?: number;
+    _editandoAgencia?: boolean;
+    _agenciaTemp?: string;
+
+    // Información específica por tipo de pago
+    datos_especificos?: any;
+    informacion_adicional?: any;
+}
+
+/** Detalle completo con información adicional del backend */
+export interface DetalleLiquidacionCompletoPE extends DetalleLiquidacionPE {
+    datos_especificos?: {
+        // Para depósitos
+        id_socio?: string;
+        nombre_socio?: string;
+        numero_cuenta_deposito?: string;
+        producto_cuenta?: string;
+        observaciones?: string;
+
+        // Para transferencias
+        nombre_cuenta?: string;
+        numero_cuenta?: string;
+        banco?: number;
+        tipo_cuenta?: number;
+
+        // Para cheques
+        nombre_beneficiario?: string;
+        consignacion?: string;
+        no_negociable?: boolean;
+
+        // Para tarjeta/anticipo
+        nota?: string;
+    };
+    informacion_adicional?: {
+        forma_pago_texto?: string;
+        tipo_detalle?: string;
+        requiere_validacion?: boolean;
+        nombre_banco?: string;
+        nombre_tipo_cuenta?: string;
+        es_negociable?: boolean;
+    };
 }
 
 // ============================================================================
@@ -188,6 +267,34 @@ export interface SolicitudAutorizacionPayload {
     tipo: 'autorizacion';
 }
 
+/** Payload para guardar detalle de liquidación */
+export interface GuardarDetalleLiquidacionPayload {
+    id?: number | null;
+    numero_factura: string;
+    numero_orden: string;
+    agencia: string;
+    descripcion: string;
+    monto: number;
+    correo_proveedor?: string | null;
+    forma_pago: string;
+    banco?: string | null;
+    cuenta?: string | null;
+
+    // Campos específicos por tipo de pago
+    id_socio?: string;
+    nombre_socio?: string;
+    numero_cuenta_deposito?: string;
+    producto_cuenta?: string;
+    observaciones?: string;
+    nombre_cuenta?: string;
+    numero_cuenta?: string;
+    tipo_cuenta?: number;
+    nombre_beneficiario?: string;
+    consignacion?: string;
+    no_negociable?: boolean;
+    nota?: string;
+}
+
 // ============================================================================
 // RESPUESTAS DE API
 // ============================================================================
@@ -254,6 +361,9 @@ export interface DetalleLiquidacionApi {
     banco: string;
     cuenta: string;
     fecha_creacion?: string;
+    fecha_actualizacion?: string;
+    datos_especificos?: any;
+    informacion_adicional?: any;
 }
 
 /** Respuesta genérica simple */
@@ -264,28 +374,54 @@ export interface GenericApiResponse<T = any> {
 }
 
 // ============================================================================
-// ENDPOINTS CORREGIDOS - ✅ SOLO CONTABILIDAD
+// UTILIDADES DE VALIDACIÓN Y FORMATEO
 // ============================================================================
 
-/** Endpoints unificados - usando solo contabilidad/ */
+/** Validador de montos */
+export interface ValidadorMonto {
+    esValido: boolean;
+    mensaje?: string;
+    montoDisponible?: number;
+}
+
+/** Información de estado de detalle */
+export interface EstadoDetalle {
+    esCompleto: boolean;
+    camposFaltantes: string[];
+    requiereGuardado: boolean;
+}
+
+// ============================================================================
+// ENDPOINTS CORREGIDOS - BASADOS EN TU BACKEND
+// ============================================================================
+
+/** Endpoints corregidos según la lista de interacciones de tu backend */
 export const PLAN_EMPRESARIAL_ENDPOINTS = {
-    // Facturas
-    BUSCAR_FACTURA: 'facturas/buscarPorNumeroDte',
+    // Facturas - Rutas correctas según tu backend
+    BUSCAR_FACTURA: 'contabilidad/buscarPorNumeroDte',
     REGISTRAR_FACTURA: 'facturas/registro/facturaManual',
     SOLICITAR_AUTORIZACION: 'facturas/solicitarAutorizacionTardanza',
+    CALCULAR_DIAS_HABILES: 'facturas/calcularDiasHabiles',
 
-    // ✅ LIQUIDACIONES - CORREGIDAS TODAS A CONTABILIDAD
+    // Liquidaciones - Rutas que realmente existen en tu backend
     OBTENER_DETALLES: 'contabilidad/obtenerDetallesLiquidacion',
     GUARDAR_DETALLE: 'contabilidad/guardarDetalleLiquidacion',
     ELIMINAR_DETALLE: 'contabilidad/eliminarDetalleLiquidacion',
-    ACTUALIZAR_DETALLE: 'contabilidad/actualizarMontoAgencia',
+    ACTUALIZAR_DETALLE: 'contabilidad/actualizarDetalleLiquidacion', // Ruta genérica de actualización
+    ACTUALIZAR_MONTO_AGENCIA: 'contabilidad/actualizarMontoAgencia', // Si existe esta específica
+    COPIAR_DETALLE: 'contabilidad/copiarDetalleLiquidacion',
 
     // Órdenes
     LISTAR_ORDENES: 'contabilidad/obtenerOrdenesAutorizadas',
     LISTAR_ANTICIPOS_PENDIENTES: 'contabilidad/obtenerSolicitudesPendientesAnticipos',
     SOLICITAR_AUTORIZACION_ANTICIPO: 'contabilidad/solicitarAutorizacionAnticiposPendientes',
 
-    // ✅ CATÁLOGOS - CORREGIDOS A CONTABILIDAD
+    // Catálogos
     OBTENER_AGENCIAS: 'contabilidad/buscarNombreLiquidacion',
-    OBTENER_TIPOS_PAGO: 'contabilidad/obtenerTiposPago'
+    OBTENER_TIPOS_PAGO: 'contabilidad/obtenerTiposPago',
+    OBTENER_DETALLE_COMPLETO: 'contabilidad/obtenerDetalleCompleto',
+
+    // Catálogos adicionales para modal
+    LISTA_BANCOS: 'facturas/bancos/lista',
+    LISTA_TIPOS_CUENTA: 'facturas/tiposCuenta/lista'
 } as const;

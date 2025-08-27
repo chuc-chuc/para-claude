@@ -1,44 +1,27 @@
 // ============================================================================
-// MODAL DETALLE LIQUIDACIÓN - CORREGIDO
+// MODAL DETALLE LIQUIDACIÓN - INTERACCIÓN DIRECTA CON FACADE
 // ============================================================================
 
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, signal, OnInit, OnDestroy, inject, Input } from '@angular/core';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Subject, forkJoin, takeUntil, finalize } from 'rxjs';
-import { ServicioGeneralService } from '../../../../servicios/servicio-general.service';
+import { Subject, takeUntil, combineLatest, map } from 'rxjs';
+import { NgSelectModule } from '@ng-select/ng-select';
+
 import { PagoDepositoFormComponent } from '../pago-forms/pago-deposito-form/pago-deposito-form.component';
 import { PagoTransferenciaFormComponent } from '../pago-forms/pago-transferencia-form/pago-transferencia-form.component';
 import { PagoChequeFormComponent } from '../pago-forms/pago-cheque-form/pago-cheque-form.component';
 import { PagoTarjetaSelectComponent } from '../pago-forms/pago-tarjeta-select/pago-tarjeta-select.component';
 import { PagoAnticipoSelectComponent } from '../pago-forms/pago-anticipo-select/pago-anticipo-select.component';
-import { NgSelectModule } from '@ng-select/ng-select';
 
-// USAR MODELO UNIFICADO
-import { TipoPago, TIPOS_PAGO_DEFAULT } from '../../../plan-empresarial-container/shared/models/plan-empresarial.models';
+import { PlanEmpresarialContainerFacade } from '../../../plan-empresarial-container/plan-empresarial-container.facade';
+import { ServicioGeneralService } from '../../../../servicios/servicio-general.service';
 
-interface Banco {
-  id_banco: number;
-  nombre: string;
-}
-
-interface TipoCuenta {
-  id_tipo_cuenta: number;
-  nombre: string;
-}
-
-interface OrdenAutorizada {
-  id: number;
-  numero_orden: string;
-  estado: string;
-  total: number;
-  total_liquidado?: number;
-}
-
-interface Agencia {
-  id: number;
-  nombre_liquidacion: string;
-}
+// USAR ÚNICAMENTE MODELOS DEL CONTAINER
+import {
+  TipoPago, BancoPE, TipoCuentaPE, AgenciaPE, OrdenAutorizadaPE,
+  GuardarDetalleLiquidacionPayload, ValidadorMonto
+} from '../../../plan-empresarial-container/shared/models/plan-empresarial.models';
 
 @Component({
   selector: 'app-modal-detalle-liquidizacion',
@@ -60,52 +43,75 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
   @Input() visible = false;
   @Input() modo: 'crear' | 'editar' = 'crear';
   @Input() registro: any | null = null;
-  @Input() factura: any | null = null;
-  @Input() facturaActualId: number | null = null;
-  @Input() totalMontoRegistros: number = 0;
 
-  @Output() guardar = new EventEmitter<any>();
-  @Output() cancelar = new EventEmitter<void>();
-  public math = Math;
+  // INYECCIÓN DEL FACADE - INTERACCIÓN DIRECTA
+  private facade = inject(PlanEmpresarialContainerFacade);
+  private servicioGeneral = inject(ServicioGeneralService);
 
   // FORMULARIO PRINCIPAL
   formularioPrincipal!: FormGroup;
-
-  // USAR TIPOS DE PAGO DEL MODELO UNIFICADO
-  tiposPago: TipoPago[] = TIPOS_PAGO_DEFAULT;
-
   tipoSeleccionado = signal<string>('');
-
-  // CATÁLOGOS
-  listaBancos: Banco[] = [];
-  listaTiposCuenta: TipoCuenta[] = [];
-  agenciasDisponibles: Agencia[] = [];
-  ordenesCompradas: OrdenAutorizada[] = [];
-
-  // ESTADO
-  submitting = false;
-  cargandoDatos = false;
-  cargandoOrdenes = false;
-  cargandoAgencias = false;
   mostrarFormularioEspecifico = signal(false);
   datosFormularioCompletos: any = null;
 
-  private destroy$ = new Subject<void>();
+  // ESTADO
+  submitting = false;
 
-  constructor(private servicioGeneral: ServicioGeneralService) { }
+  // STREAMS DIRECTOS DEL FACADE
+  factura$ = this.facade.factura$;
+  tiposPago$ = this.facade.tiposPago$;
+  bancos$ = this.facade.bancos$;
+  tiposCuenta$ = this.facade.tiposCuenta$;
+  agencias$ = this.facade.agencias$;
+  ordenesAutorizadas$ = this.facade.ordenesAutorizadas$;
+  total$ = this.facade.total$;
+
+  // LOADING STATES DEL FACADE
+  cargandoBancos$ = this.facade.cargandoBancos$;
+  cargandoTiposCuenta$ = this.facade.cargandoTiposCuenta$;
+  cargandoOrdenesAutorizadas$ = this.facade.cargandoOrdenesAutorizadas$;
+
+  // PROPIEDADES LOCALES SINCRONIZADAS
+  tiposPago: TipoPago[] = [];
+  agenciasDisponibles: AgenciaPE[] = [];
+  ordenesCompradas: OrdenAutorizadaPE[] = [];
+  factura: any = null;
+  facturaActualId: number | null = null;
+  totalMontoRegistros: number = 0;
+  cargandoDatos = false;
+  cargandoOrdenes = false;
+  cargandoAgencias = false;
+
+  // DATOS COMBINADOS PARA EFICIENCIA
+  datosModal$ = combineLatest([
+    this.tiposPago$,
+    this.bancos$,
+    this.tiposCuenta$,
+    this.agencias$,
+    this.ordenesAutorizadas$,
+    this.factura$,
+    this.total$
+  ]).pipe(
+    map(([tipos, bancos, tiposCuenta, agencias, ordenes, factura, total]) => ({
+      tiposPago: tipos,
+      bancos,
+      tiposCuenta,
+      agencias,
+      ordenesDisponibles: ordenes.filter(o =>
+        o.estado === 'autorizada' && (o.total_liquidado || 0) < o.total
+      ),
+      factura,
+      total
+    }))
+  );
+
+  public math = Math;
+  private destroy$ = new Subject<void>();
 
   ngOnInit() {
     this.inicializarFormulario();
-    this.cargarDatosCatalogos();
-    this.cargarOrdenes();
-    this.cargarAgencias();
     this.configurarSuscripciones();
-
-    // Inicializar tipo seleccionado si hay registro previo
-    if (this.registro?.forma_pago) {
-      this.tipoSeleccionado.set(this.registro.forma_pago);
-      this.formularioPrincipal.get('forma_pago')?.setValue(this.registro.forma_pago);
-    }
+    this.sincronizarDatosConFacade();
   }
 
   ngOnDestroy() {
@@ -113,7 +119,9 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // === INICIALIZACIÓN ===
+  // ============================================================================
+  // INICIALIZACIÓN
+  // ============================================================================
 
   inicializarFormulario() {
     this.formularioPrincipal = new FormGroup({
@@ -134,14 +142,13 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
       cuenta: new FormControl('')
     });
 
-    // Cargar datos si es edición
     if (this.registro) {
-      setTimeout(() => this.cargarDatosParaEdicion(), 0);
+      this.cargarDatosParaEdicion();
     }
   }
 
   configurarSuscripciones() {
-    // Suscripción a cambios en la forma de pago
+    // Cambios en forma de pago
     this.formularioPrincipal.get('forma_pago')?.valueChanges
       .pipe(takeUntil(this.destroy$))
       .subscribe(value => {
@@ -149,12 +156,33 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
         this.manejarCambiosFormaPago(value);
       });
 
-    // Validar monto
+    // Validación de monto
     this.formularioPrincipal.get('monto')?.valueChanges
       .pipe(takeUntil(this.destroy$))
       .subscribe(monto => {
-        this.validarMonto(monto);
+        this.validarMontoConFacade(monto);
       });
+  }
+
+  sincronizarDatosConFacade() {
+    // Sincronizar datos combinados
+    this.datosModal$.pipe(takeUntil(this.destroy$)).subscribe(datos => {
+      this.tiposPago = datos.tiposPago;
+      this.agenciasDisponibles = datos.agencias;
+      this.ordenesCompradas = datos.ordenesDisponibles;
+      this.factura = datos.factura;
+      this.facturaActualId = datos.factura?.id || null;
+      this.totalMontoRegistros = datos.total;
+    });
+
+    // Estados de loading
+    this.cargandoBancos$.pipe(takeUntil(this.destroy$)).subscribe(loading => {
+      this.cargandoDatos = loading;
+    });
+
+    this.cargandoOrdenesAutorizadas$.pipe(takeUntil(this.destroy$)).subscribe(loading => {
+      this.cargandoOrdenes = loading;
+    });
   }
 
   cargarDatosParaEdicion() {
@@ -174,100 +202,9 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
     this.tipoSeleccionado.set(this.registro.forma_pago || '');
   }
 
-  // === CARGA DE CATÁLOGOS ===
-
-  cargarDatosCatalogos() {
-    this.cargandoDatos = true;
-
-    forkJoin({
-      bancos: this.servicioGeneral.query({
-        ruta: 'facturas/bancos/lista',
-        tipo: 'get'
-      }),
-      tiposCuenta: this.servicioGeneral.query({
-        ruta: 'facturas/tiposCuenta/lista',
-        tipo: 'get'
-      })
-    }).pipe(
-      finalize(() => {
-        this.cargandoDatos = false;
-      }),
-      takeUntil(this.destroy$)
-    ).subscribe({
-      next: (results: any) => {
-        if (results.bancos.respuesta === 'success' && results.bancos.datos) {
-          this.listaBancos = results.bancos.datos;
-        }
-
-        if (results.tiposCuenta.respuesta === 'success' && results.tiposCuenta.datos) {
-          this.listaTiposCuenta = results.tiposCuenta.datos;
-        }
-      },
-      error: (err) => {
-        console.error('Error al cargar catálogos:', err);
-      }
-    });
-  }
-
-  cargarOrdenes() {
-    this.cargandoOrdenes = true;
-
-    this.servicioGeneral.query({
-      ruta: 'contabilidad/obtenerOrdenesAutorizadas',
-      tipo: 'get'
-    }).subscribe({
-      next: (res: any) => {
-        if (res.respuesta === 'success') {
-          // Filtrar órdenes que NO tengan anticipos pendientes o tardíos
-          this.ordenesCompradas = res.datos
-            .filter((orden: any) => orden.anticipos_pendientes_o_tardios === 0)
-            .map((orden: any) => ({
-              id: orden.numero_orden,
-              numero_orden: orden.numero_orden.toString(),
-              estado: 'autorizada',
-              total: parseFloat(orden.total),
-              total_liquidado: parseFloat(orden.monto_liquidado) || 0,
-              monto_pendiente: parseFloat(orden.total) - (parseFloat(orden.monto_liquidado) || 0),
-              puede_finalizar: (parseFloat(orden.total) - (parseFloat(orden.monto_liquidado) || 0)) <= 0
-            }));
-        } else {
-          this.servicioGeneral.mensajeServidor('error', res.mensaje, 'Error');
-        }
-        this.cargandoOrdenes = false;
-      },
-      error: (err) => {
-        this.cargandoOrdenes = false;
-        this.servicioGeneral.mensajeServidor('error', 'No se pudieron cargar las órdenes autorizadas', 'Error');
-      }
-    });
-  }
-
-  cargarAgencias() {
-    this.cargandoAgencias = true;
-
-    this.servicioGeneral.query({
-      ruta: 'contabilidad/buscarNombreLiquidacion',
-      tipo: 'get'
-    }).subscribe({
-      next: (res: any) => {
-        if (res.respuesta === 'success') {
-          this.agenciasDisponibles = res.datos.map((agencia: any) => ({
-            id: agencia.id,
-            nombre_liquidacion: agencia.nombre_liquidacion
-          }));
-        } else {
-          this.servicioGeneral.mensajeServidor('error', res.mensaje, 'Error');
-        }
-        this.cargandoAgencias = false;
-      },
-      error: (err) => {
-        this.cargandoAgencias = false;
-        this.servicioGeneral.mensajeServidor('error', 'No se pudieron cargar las agencias', 'Error');
-      }
-    });
-  }
-
-  // === MANEJO DE TIPOS DE PAGO ===
+  // ============================================================================
+  // MANEJO DE TIPOS DE PAGO
+  // ============================================================================
 
   manejarCambiosFormaPago(forma_pago: string) {
     const bancoControl = this.formularioPrincipal.get('banco');
@@ -278,14 +215,12 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
     const tipoPago = this.tiposPago.find(t => t.nombre === forma_pago || t.id === forma_pago);
 
     if (tipoPago?.requiereFormulario) {
-      // Para tipos complejos, limpiar campos básicos
       bancoControl.clearValidators();
       cuentaControl.clearValidators();
       bancoControl.setValue('');
       cuentaControl.setValue('');
       this.mostrarFormularioEspecifico.set(true);
     } else {
-      // Para tipos simples, limpiar pero mantener disponibles
       bancoControl.clearValidators();
       cuentaControl.clearValidators();
       bancoControl.setValue('');
@@ -320,10 +255,50 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
     return tipoPago?.requiereFormulario || false;
   }
 
-  // === MANEJO DE FORMULARIOS ESPECÍFICOS ===
+  // ============================================================================
+  // VALIDACIONES CON FACADE
+  // ============================================================================
+
+  validarMontoConFacade(monto: number | null) {
+    if (!this.factura || monto === null || monto === undefined) return;
+
+    const montoControl = this.formularioPrincipal.get('monto');
+    if (!montoControl) return;
+
+    const validacion: ValidadorMonto = this.facade.validarMonto(-1, monto);
+
+    const errores = montoControl.errors || {};
+    delete errores['montoExcedido'];
+    delete errores['montoInsuficiente'];
+
+    if (!validacion.esValido) {
+      if (validacion.mensaje?.includes('mayor a 0')) {
+        errores['montoInsuficiente'] = true;
+      } else if (validacion.mensaje?.includes('excede')) {
+        errores['montoExcedido'] = {
+          montoDisponible: validacion.montoDisponible,
+          montoIngresado: monto
+        };
+      }
+    }
+
+    const tieneErrores = Object.keys(errores).length > 0;
+    montoControl.setErrors(tieneErrores ? errores : null);
+  }
+
+  calcularMontoDisponible(): number {
+    return this.facade.calcularMontoDisponible();
+  }
+
+  calcularMontoPendiente(): number {
+    return this.calcularMontoDisponible();
+  }
+
+  // ============================================================================
+  // FORMULARIOS ESPECÍFICOS
+  // ============================================================================
 
   onGuardarDesdeForm(datosEspecificos: any) {
-    // Integrar datos del formulario específico con el formulario principal
     this.datosFormularioCompletos = {
       ...this.formularioPrincipal.value,
       ...datosEspecificos,
@@ -338,55 +313,9 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
     this.mostrarFormularioEspecifico.set(false);
   }
 
-  // === VALIDACIONES ===
-
-  validarMonto(monto: number | null) {
-    if (!this.factura || monto === null || monto === undefined) return;
-
-    const montoControl = this.formularioPrincipal.get('monto');
-    if (!montoControl) return;
-
-    const montoTotal = typeof this.factura.monto_total === 'string'
-      ? parseFloat(this.factura.monto_total)
-      : this.factura.monto_total;
-
-    const montoDisponible = montoTotal - this.totalMontoRegistros;
-
-    // Limpiar errores previos
-    const errores = montoControl.errors || {};
-    delete errores['montoExcedido'];
-    delete errores['montoInsuficiente'];
-
-    if (monto > montoDisponible) {
-      errores['montoExcedido'] = {
-        montoDisponible: montoDisponible,
-        montoIngresado: monto
-      };
-    }
-
-    if (monto <= 0) {
-      errores['montoInsuficiente'] = true;
-    }
-
-    const tieneErrores = Object.keys(errores).length > 0;
-    montoControl.setErrors(tieneErrores ? errores : null);
-  }
-
-  calcularMontoDisponible(): number {
-    if (!this.factura) return 0;
-
-    const montoTotal = typeof this.factura.monto_total === 'string'
-      ? parseFloat(this.factura.monto_total)
-      : this.factura.monto_total;
-
-    return montoTotal - this.totalMontoRegistros;
-  }
-
-  calcularMontoPendiente(): number {
-    return this.calcularMontoDisponible();
-  }
-
-  // === ACCIONES PRINCIPALES ===
+  // ============================================================================
+  // ACCIONES PRINCIPALES
+  // ============================================================================
 
   onGuardarBasico() {
     if (!this.formularioPrincipal.valid) {
@@ -400,7 +329,6 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
     if (tipoPago?.requiereFormulario) {
       this.mostrarFormularioEspecifico.set(true);
     } else {
-      // Para tipos simples, guardar directamente
       this.datosFormularioCompletos = {
         ...this.formularioPrincipal.value,
         forma_pago: this.tipoSeleccionado(),
@@ -419,16 +347,85 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
 
     this.submitting = true;
 
-    // Emitir los datos al componente padre
-    this.guardar.emit(this.datosFormularioCompletos);
+    const payload: GuardarDetalleLiquidacionPayload = {
+      id: this.registro?.id || null,
+      numero_factura: this.factura?.numero_dte || '',
+      numero_orden: this.datosFormularioCompletos.numero_orden,
+      agencia: this.datosFormularioCompletos.agencia,
+      descripcion: this.datosFormularioCompletos.descripcion,
+      monto: parseFloat(this.datosFormularioCompletos.monto),
+      correo_proveedor: this.datosFormularioCompletos.correo_proveedor || null,
+      forma_pago: this.datosFormularioCompletos.forma_pago,
+      banco: this.datosFormularioCompletos.banco || null,
+      cuenta: this.datosFormularioCompletos.cuenta || null,
+      ...this.extraerCamposEspecificos(this.datosFormularioCompletos)
+    };
+
+    // GUARDAR DIRECTAMENTE CON EL FACADE
+    this.facade.guardarDetalle(payload).pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (success: boolean) => {
+        this.submitting = false;
+        if (success) {
+          this.cerrarModal();
+        }
+      },
+      error: () => {
+        this.submitting = false;
+        this.servicioGeneral.mensajeServidor('error', 'Error al guardar el detalle', 'Error');
+      }
+    });
+  }
+
+  private extraerCamposEspecificos(datos: any): Partial<GuardarDetalleLiquidacionPayload> {
+    const especificos: Partial<GuardarDetalleLiquidacionPayload> = {};
+
+    switch (datos.forma_pago) {
+      case 'deposito':
+        if (datos.id_socio) especificos.id_socio = datos.id_socio;
+        if (datos.nombre_socio) especificos.nombre_socio = datos.nombre_socio;
+        if (datos.numero_cuenta_deposito) especificos.numero_cuenta_deposito = datos.numero_cuenta_deposito;
+        if (datos.producto_cuenta) especificos.producto_cuenta = datos.producto_cuenta;
+        if (datos.observaciones) especificos.observaciones = datos.observaciones;
+        break;
+
+      case 'transferencia':
+        if (datos.nombre_cuenta) especificos.nombre_cuenta = datos.nombre_cuenta;
+        if (datos.numero_cuenta) especificos.numero_cuenta = datos.numero_cuenta;
+        if (datos.banco) especificos.banco = datos.banco;
+        if (datos.tipo_cuenta) especificos.tipo_cuenta = datos.tipo_cuenta;
+        if (datos.observaciones) especificos.observaciones = datos.observaciones;
+        break;
+
+      case 'cheque':
+        if (datos.nombre_beneficiario) especificos.nombre_beneficiario = datos.nombre_beneficiario;
+        if (datos.consignacion) especificos.consignacion = datos.consignacion;
+        if (datos.no_negociable !== undefined) especificos.no_negociable = datos.no_negociable;
+        if (datos.observaciones) especificos.observaciones = datos.observaciones;
+        break;
+
+      case 'tarjeta':
+      case 'anticipo':
+        if (datos.nota) especificos.nota = datos.nota;
+        break;
+    }
+
+    return especificos;
   }
 
   onCancelar() {
-    this.resetearFormulario();
-    this.cancelar.emit();
+    this.cerrarModal();
   }
 
-  // === UTILIDADES ===
+  private cerrarModal() {
+    this.resetearFormulario();
+    this.visible = false;
+  }
+
+  // ============================================================================
+  // UTILIDADES
+  // ============================================================================
 
   marcarCamposComoTocados() {
     Object.keys(this.formularioPrincipal.controls).forEach(key => {
@@ -445,7 +442,9 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
     this.submitting = false;
   }
 
-  // === GETTERS PARA EL TEMPLATE ===
+  // ============================================================================
+  // GETTERS PARA TEMPLATE
+  // ============================================================================
 
   get esFormularioValido(): boolean {
     return this.formularioPrincipal.valid;
@@ -455,14 +454,27 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
     return this.calcularMontoDisponible();
   }
 
-  get ordenesDisponibles(): OrdenAutorizada[] {
+  get ordenesDisponibles(): OrdenAutorizadaPE[] {
     return this.ordenesCompradas.filter(orden =>
       orden.estado === 'autorizada' &&
       (orden.total_liquidado || 0) < orden.total
     );
   }
 
-  // === MANEJO DE ERRORES Y VALIDACIONES DEL TEMPLATE ===
+  get infoFactura() {
+    if (!this.factura) return null;
+
+    return {
+      numero: this.factura.numero_factura || 'Sin número',
+      proveedor: this.factura.nombre_proveedor || 'Sin proveedor',
+      total: this.formatearMonto(this.factura.monto_total || 0),
+      disponible: this.formatearMonto(this.montoDisponible)
+    };
+  }
+
+  // ============================================================================
+  // MANEJO DE ERRORES
+  // ============================================================================
 
   campoInvalido(nombreCampo: string): boolean {
     const control = this.formularioPrincipal.get(nombreCampo);
@@ -478,40 +490,22 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
 
     const errores = control.errors;
 
-    if (errores['required']) {
-      return 'Este campo es obligatorio';
-    }
-
-    if (errores['email']) {
-      return 'Ingrese un correo electrónico válido';
-    }
-
-    if (errores['minlength']) {
-      return `Mínimo ${errores['minlength'].requiredLength} caracteres`;
-    }
-
-    if (errores['maxlength']) {
-      return `Máximo ${errores['maxlength'].requiredLength} caracteres`;
-    }
-
-    if (errores['min']) {
-      return `El valor mínimo es ${errores['min'].min}`;
-    }
-
-    if (errores['montoExcedido']) {
-      return `El monto excede el disponible (Q${errores['montoExcedido'].montoDisponible.toFixed(2)})`;
-    }
-
-    if (errores['montoInsuficiente']) {
-      return 'El monto debe ser mayor a 0';
-    }
+    if (errores['required']) return 'Este campo es obligatorio';
+    if (errores['email']) return 'Ingrese un correo electrónico válido';
+    if (errores['minlength']) return `Mínimo ${errores['minlength'].requiredLength} caracteres`;
+    if (errores['maxlength']) return `Máximo ${errores['maxlength'].requiredLength} caracteres`;
+    if (errores['min']) return `El valor mínimo es ${errores['min'].min}`;
+    if (errores['montoExcedido']) return `El monto excede el disponible (Q${errores['montoExcedido'].montoDisponible.toFixed(2)})`;
+    if (errores['montoInsuficiente']) return 'El monto debe ser mayor a 0';
 
     return 'Campo inválido';
   }
 
-  // === TRACKBY FUNCTIONS PARA PERFORMANCE ===
+  // ============================================================================
+  // TRACKBY FUNCTIONS
+  // ============================================================================
 
-  trackByOrden(index: number, orden: OrdenAutorizada): number {
+  trackByOrden(index: number, orden: OrdenAutorizadaPE): number {
     return orden.id;
   }
 
@@ -519,11 +513,17 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
     return tipo.id;
   }
 
-  trackByAgencia(index: number, agencia: Agencia): number {
+  trackByAgencia(index: number, agencia: AgenciaPE): number {
     return agencia.id;
   }
 
-  // === MANEJO DE ÓRDENES ===
+  trackByBanco(index: number, banco: BancoPE): number {
+    return banco.id_banco;
+  }
+
+  // ============================================================================
+  // MANEJO DE ÓRDENES
+  // ============================================================================
 
   onSeleccionarOrden(numeroOrden: string) {
     const orden = this.ordenesDisponibles.find(o => o.numero_orden === numeroOrden);
@@ -539,19 +539,21 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
     }
   }
 
-  // === EVENTOS DEL MODAL ===
+  // ============================================================================
+  // EVENTOS DEL MODAL
+  // ============================================================================
 
   onModalClick(event: Event) {
-    // Evitar que el modal se cierre al hacer click en el contenido
     event.stopPropagation();
   }
 
   onOverlayClick() {
-    // Cerrar modal al hacer click en el overlay
     this.onCancelar();
   }
 
-  // === FORMATEO ===
+  // ============================================================================
+  // FORMATEO Y VALIDACIONES
+  // ============================================================================
 
   formatearMonto(monto: number): string {
     return new Intl.NumberFormat('es-GT', {
@@ -561,8 +563,6 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
     }).format(monto);
   }
 
-  // === VALIDACIONES ADICIONALES ===
-
   validarFormularioCompleto(): boolean {
     const formularioPrincipalValido = this.formularioPrincipal.valid;
 
@@ -570,28 +570,12 @@ export class ModalDetalleLiquidizacionComponent implements OnInit, OnDestroy {
       return formularioPrincipalValido;
     }
 
-    // Si requiere formulario específico, debe estar completo
     return formularioPrincipalValido && this.datosFormularioCompletos !== null;
   }
-
-  // === MANEJO DE ESTADOS ===
 
   reiniciarEstado() {
     this.submitting = false;
     this.mostrarFormularioEspecifico.set(false);
     this.datosFormularioCompletos = null;
-  }
-
-  // === INFORMACIÓN DE LA FACTURA ===
-
-  get infoFactura() {
-    if (!this.factura) return null;
-
-    return {
-      numero: this.factura.numero_factura || 'Sin número',
-      proveedor: this.factura.nombre_proveedor || 'Sin proveedor',
-      total: this.formatearMonto(this.factura.monto_total || 0),
-      disponible: this.formatearMonto(this.montoDisponible)
-    };
   }
 }

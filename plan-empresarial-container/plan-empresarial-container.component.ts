@@ -1,11 +1,7 @@
-// ============================================================================
-// COMPONENTE CONTENEDOR - CON RECARGA AUTOMÁTICA CORREGIDA
-// ============================================================================
-
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, OnDestroy, inject, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Observable, combineLatest, map } from 'rxjs';
+import { Observable } from 'rxjs';
 
 import { OrdenesPlanEmpresarialComponent } from '../liquidacion-plan-empresarial/components/ordenes-plan-empresarial/ordenes-plan-empresarial.component';
 import { DetalleFacturaPEComponent } from '../facturas-plan-empresarial/components/detalle-factura/detalle-factura.component';
@@ -28,93 +24,38 @@ import { FacturaPE, OrdenPlanEmpresarial, DetalleLiquidacionPE } from './shared/
 export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
 
+  // Streams para componentes que todavía no interactúan directamente
   readonly ordenes$: Observable<OrdenPlanEmpresarial[]>;
   readonly cargandoOrdenes$: Observable<boolean>;
 
   readonly factura$: Observable<FacturaPE | null>;
   readonly loadingFactura$: Observable<boolean>;
 
-  readonly detallesLiquidacion$: Observable<DetalleLiquidacionPE[]>;
-  readonly loadingDetalles$: Observable<boolean>;
-  readonly savingDetalles$: Observable<boolean>;
-
-  readonly agencias$: Observable<any[]>;
-  readonly tiposPago$: Observable<any[]>;
-  readonly total$: Observable<number>;
-
   currentSearchText: string = '';
 
+  // Valores locales para funcionalidad del container
   private facturaActualValue: FacturaPE | null = null;
   private detallesActualesValue: DetalleLiquidacionPE[] = [];
 
-  readonly datosLiquidacion$: Observable<{
-    factura: FacturaPE | null;
-    detalles: DetalleLiquidacionPE[];
-    agencias: any[];
-    tiposPago: any[];
-    total: number;
-    isLoading: boolean;
-    isSaving: boolean;
-    habilitarAcciones: boolean;
-    estadoMonto: 'completo' | 'incompleto' | 'excedido';
-  }>;
-
   constructor(private facade: PlanEmpresarialContainerFacade) {
+    // Solo los streams que realmente necesita el container
     this.ordenes$ = this.facade.ordenes$;
     this.cargandoOrdenes$ = this.facade.cargandoOrdenes$;
     this.factura$ = this.facade.factura$;
     this.loadingFactura$ = this.facade.loadingFactura$;
-    this.detallesLiquidacion$ = this.facade.detallesLiquidacion$;
-    this.loadingDetalles$ = this.facade.loadingDetalles$;
-    this.savingDetalles$ = this.facade.savingDetalles$;
-    this.agencias$ = this.facade.agencias$;
-    this.tiposPago$ = this.facade.tiposPago$;
-    this.total$ = this.facade.total$;
 
+    // Mantener valores locales para getters públicos
     this.factura$.pipe(
       takeUntilDestroyed(this.destroyRef)
     ).subscribe(factura => {
       this.facturaActualValue = factura;
     });
 
-    this.detallesLiquidacion$.pipe(
+    this.facade.detallesLiquidacion$.pipe(
       takeUntilDestroyed(this.destroyRef)
     ).subscribe(detalles => {
       this.detallesActualesValue = detalles;
     });
-
-    this.datosLiquidacion$ = combineLatest([
-      this.factura$,
-      this.detallesLiquidacion$,
-      this.agencias$,
-      this.tiposPago$,
-      this.total$,
-      this.loadingDetalles$,
-      this.savingDetalles$
-    ]).pipe(
-      map(([factura, detalles, agencias, tiposPago, total, loading, saving]) => {
-        const habilitarAcciones = !!factura && factura.estado_id !== 2;
-
-        let estadoMonto: 'completo' | 'incompleto' | 'excedido' = 'incompleto';
-        if (factura && total > 0) {
-          const diff = Math.abs(total - factura.monto_total);
-          if (diff < 0.01) estadoMonto = 'completo';
-          else if (total > factura.monto_total) estadoMonto = 'excedido';
-        }
-
-        return {
-          factura,
-          detalles,
-          agencias,
-          tiposPago,
-          total,
-          isLoading: loading,
-          isSaving: saving,
-          habilitarAcciones,
-          estadoMonto
-        };
-      })
-    );
   }
 
   ngOnInit(): void {
@@ -141,75 +82,13 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
 
   onLiquidarFactura(): void {
     const facturaActual = this.facturaActual;
-
     if (facturaActual) {
       // Lógica adicional para el proceso de liquidación si es necesaria
     }
   }
 
   // ============================================================================
-  // EVENTOS PARA LA TABLA DE LIQUIDACIONES - CORREGIDOS
-  // ============================================================================
-
-  onAgregarDetalle(): void {
-    // El componente maneja la creación directamente
-  }
-
-  onEditarDetalle(index: number): void {
-    if (index < 0 || index >= this.detallesActuales.length) return;
-    // El modal es manejado dentro del componente de liquidaciones
-  }
-
-  onEliminarDetalle(index: number): void {
-    if (index < 0 || index >= this.detallesActuales.length) return;
-
-    const detalle = this.detallesActuales[index];
-    this.facade.eliminarDetalle(index);
-  }
-
-  onCopiarDetalle(index: number): void {
-    if (index < 0 || index >= this.detallesActuales.length) return;
-
-    this.facade.copiarDetalle(index);
-  }
-
-  onGuardarTodo(): void {
-    const totalDetalles = this.detallesActuales.length;
-    if (totalDetalles === 0) return;
-
-    this.facade.guardarTodosLosDetalles().pipe(
-      takeUntilDestroyed(this.destroyRef)
-    ).subscribe();
-  }
-
-  onCambiarFormaPago(event: { index: number; tipo: string }): void {
-    if (event.index < 0 || event.index >= this.detallesActuales.length) return;
-
-    this.facade.cambiarFormaPago(event.index, event.tipo);
-  }
-
-  // ✅ NUEVO MÉTODO PARA ACTUALIZAR DETALLES LOCALMENTE
-  onActualizarDetalle(event: { index: number; campo: string; valor: any }): void {
-    if (event.index < 0 || event.index >= this.detallesActuales.length) return;
-
-    // Actualizar el facade directamente
-    const patch: any = {};
-    patch[event.campo] = event.valor;
-    this.facade.actualizarDetalle(event.index, patch);
-  }
-
-  // ✅ MÉTODO CORREGIDO PARA RECARGAR DETALLES
-  onCargarDetalles(): void {
-    // Debug: verificar que se está ejecutando
-    const factura = this.facturaActual;
-    if (factura) {
-      // Llamar al facade para recargar
-      this.facade.recargarDetalles();
-    }
-  }
-
-  // ============================================================================
-  // ACCIONES ADICIONALES
+  // ACCIONES ADICIONALES (MÉTODOS DE UTILIDAD DEL CONTAINER)
   // ============================================================================
 
   onLimpiarDatos(): void {
@@ -226,7 +105,7 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
   }
 
   // ============================================================================
-  // GETTERS PÚBLICOS
+  // GETTERS PÚBLICOS (para retrocompatibilidad y funcionalidad del container)
   // ============================================================================
 
   get facturaActual(): FacturaPE | null {
@@ -250,7 +129,7 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
   }
 
   // ============================================================================
-  // MÉTODOS PÚBLICOS ADICIONALES
+  // MÉTODOS PÚBLICOS ADICIONALES (para funcionalidad específica del container)
   // ============================================================================
 
   obtenerFacturaActual(): Observable<FacturaPE | null> {
@@ -347,11 +226,11 @@ export class PlanEmpresarialContainerComponent implements OnInit, OnDestroy {
   }
 
   validarConsistencia(): boolean {
-    const factureFacade = this.facade.getFacturaActual();
+    const facturaFacade = this.facade.getFacturaActual();
     const detallesFacade = this.facade.getDetallesActuales();
     const totalFacade = this.facade.getTotalActual();
 
-    const facturaConsistente = this.facturaActual === factureFacade;
+    const facturaConsistente = this.facturaActual === facturaFacade;
     const detallesConsistentes = this.detallesActuales.length === detallesFacade.length;
     const totalConsistente = Math.abs(this.totalActual - totalFacade) < 0.01;
 
