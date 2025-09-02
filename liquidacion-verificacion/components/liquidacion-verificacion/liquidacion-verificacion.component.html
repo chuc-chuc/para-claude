@@ -1,0 +1,114 @@
+<div class="p-6 max-w-7xl mx-auto space-y-6">
+
+    <!-- Header -->
+    <div class="bg-white rounded-lg shadow border p-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-4">
+            Liquidación y Verificación
+        </h1>
+
+        <!-- Búsqueda -->
+        <div class="flex gap-4 items-end">
+            <div class="flex-1 max-w-md">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Número de Factura (DTE)
+                </label>
+                <input type="text" [formControl]="numeroFacturaControl" placeholder="Ingrese número de factura..."
+                    class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <button (click)="buscarManual()" [disabled]="!numeroFacturaControl.value || loading()"
+                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
+                {{ loading() ? 'Buscando...' : 'Buscar' }}
+            </button>
+        </div>
+    </div>
+
+    <!-- Información de Factura -->
+    <div *ngIf="liquidacion() as liq" class="bg-white rounded-lg shadow border p-6">
+        <h2 class="text-lg font-semibold mb-4">Información de la Factura</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <span class="text-sm text-gray-500">Número DTE</span>
+                <p class="font-semibold">{{ liq.factura.numero_dte }}</p>
+            </div>
+            <div>
+                <span class="text-sm text-gray-500">Emisor</span>
+                <p class="text-sm">{{ liq.factura.nombre_emisor }}</p>
+            </div>
+            <div>
+                <span class="text-sm text-gray-500">Fecha</span>
+                <p class="text-sm">{{ formatearFecha(liq.factura.fecha_emision) }}</p>
+            </div>
+            <div>
+                <span class="text-sm text-gray-500">Monto</span>
+                <p class="font-semibold text-green-600">{{ formatearMonto(liq.factura.monto_total) }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen -->
+    <div *ngIf="liquidacion() as liq" class="bg-white rounded-lg shadow border p-6">
+        <h2 class="text-lg font-semibold mb-4">Resumen</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-blue-50 p-4 rounded-lg">
+                <span class="text-sm text-blue-600">Total Liquidado</span>
+                <p class="text-xl font-bold text-blue-800">{{ formatearMonto(liq.total_detalles) }}</p>
+            </div>
+            <div class="bg-red-50 p-4 rounded-lg">
+                <span class="text-sm text-red-600">Total Retenciones</span>
+                <p class="text-xl font-bold text-red-800">{{ formatearMonto(liq.total_retenciones) }}</p>
+            </div>
+            <div class="bg-green-50 p-4 rounded-lg">
+                <span class="text-sm text-green-600">Monto Neto</span>
+                <p class="text-xl font-bold text-green-800">{{ formatearMonto(liq.monto_neto) }}</p>
+            </div>
+            <div class="bg-purple-50 p-4 rounded-lg">
+                <span class="text-sm text-purple-600">Progreso</span>
+                <p class="text-xl font-bold text-purple-800">{{ liq.porcentaje_completado }}%</p>
+                <div class="w-full bg-purple-200 rounded-full h-2 mt-1">
+                    <div class="bg-purple-600 h-2 rounded-full" [style.width.%]="liq.porcentaje_completado"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido principal -->
+    <div *ngIf="liquidacion(); else sinDatos" class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+        <!-- Detalles -->
+        <div>
+            <app-tabla-detalles [detalles]="liquidacion()!.detalles" [loading]="loading()"
+                (verificar)="abrirModalVerificar($event)">
+            </app-tabla-detalles>
+        </div>
+
+        <!-- Retenciones -->
+        <div>
+            <app-tabla-retenciones [retenciones]="liquidacion()!.retenciones" [loading]="loading()"
+                (agregar)="abrirModalNuevaRetencion()" (editar)="abrirModalEditarRetencion($event)"
+                (eliminar)="eliminarRetencion($event)">
+            </app-tabla-retenciones>
+        </div>
+    </div>
+
+    <!-- Sin datos -->
+    <ng-template #sinDatos>
+        <div class="bg-white rounded-lg shadow border p-12 text-center">
+            <div class="text-gray-400 text-6xl mb-4">📋</div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Sin factura seleccionada</h3>
+            <p class="text-gray-600">Busque una factura por su número DTE para continuar</p>
+        </div>
+    </ng-template>
+
+    <!-- Modales -->
+    <app-modal-verificar *ngIf="mostrarModalVerificar()" [detalle]="detalleAVerificar()"
+        (cerrar)="cerrarModalVerificar()" (confirmado)="confirmarVerificacion($event)">
+    </app-modal-verificar>
+
+    <app-modal-retencion *ngIf="mostrarModalRetencion()" [modo]="modoRetencion()" [retencion]="retencionAEditar()"
+        [tiposRetencion]="tiposRetencion()" [numeroFactura]="liquidacion()?.factura?.numero_dte || ''"
+        (cerrar)="cerrarModalRetencion()" (confirmado)="confirmarRetencion($event)">
+    </app-modal-retencion>
+</div>

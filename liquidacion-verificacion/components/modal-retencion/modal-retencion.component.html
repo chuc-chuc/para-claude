@@ -1,0 +1,131 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+
+        <!-- Header -->
+        <div class="px-6 py-4 border-b">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-semibold">
+                    {{ modo === 'crear' ? 'Nueva Retención' : 'Editar Retención' }}
+                </h3>
+                <button (click)="cerrar.emit()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Contenido -->
+        <div class="px-6 py-4">
+
+            <!-- Info disponible (solo en modo crear) -->
+            <div *ngIf="modo === 'crear'" class="bg-blue-50 rounded-lg p-4 mb-4">
+                <div class="flex items-center gap-2 text-blue-800">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="font-medium">Monto disponible para retenciones:</span>
+                    <span class="font-bold">{{ formatearMonto(montoDisponible()) }}</span>
+                </div>
+            </div>
+
+            <!-- Formulario -->
+            <form [formGroup]="formulario" class="space-y-4">
+
+                <!-- Tipo de Retención -->
+                <div>
+                    <label class="block text-sm font-medium mb-2">
+                        Tipo de Retención *
+                    </label>
+                    <select formControlName="tipo_retencion_id"
+                        class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        [class.border-red-300]="esInvalido('tipo_retencion_id')" (change)="onTipoChange($event)">
+                        <option value="">Seleccione un tipo</option>
+                        <option *ngFor="let tipo of tiposRetencion" [value]="tipo.id">
+                            {{ tipo.codigo }} - {{ tipo.nombre }}
+                            <span *ngIf="tipo.porcentaje_default">({{ tipo.porcentaje_default }}%)</span>
+                        </option>
+                    </select>
+                    <div *ngIf="esInvalido('tipo_retencion_id')" class="text-red-500 text-sm mt-1">
+                        Seleccione un tipo de retención
+                    </div>
+                </div>
+
+                <!-- Número de Retención -->
+                <div>
+                    <label class="block text-sm font-medium mb-2">
+                        Número de Retención *
+                    </label>
+                    <input type="text" formControlName="numero_retencion" placeholder="Ej: RET-2024-001234"
+                        class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        [class.border-red-300]="esInvalido('numero_retencion')">
+                    <div *ngIf="esInvalido('numero_retencion')" class="text-red-500 text-sm mt-1">
+                        El número de retención es obligatorio (mínimo 3 caracteres)
+                    </div>
+                </div>
+
+                <!-- Porcentaje y Monto -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">
+                            Porcentaje (%)
+                        </label>
+                        <input type="number" formControlName="porcentaje" placeholder="0.00" step="0.01" min="0"
+                            max="100"
+                            class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            (input)="calcularMontoPorPorcentaje()">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-2">
+                            Monto *
+                        </label>
+                        <input type="number" formControlName="monto" placeholder="0.00" step="0.01" min="0"
+                            class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            [class.border-red-300]="esInvalido('monto')" (input)="calcularPorcentajePorMonto()">
+                        <div *ngIf="esInvalido('monto')" class="text-red-500 text-sm mt-1">
+                            El monto es obligatorio y debe ser mayor a 0
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fecha -->
+                <div>
+                    <label class="block text-sm font-medium mb-2">
+                        Fecha de Retención *
+                    </label>
+                    <input type="date" formControlName="fecha_retencion"
+                        class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        [class.border-red-300]="esInvalido('fecha_retencion')" [max]="fechaHoy">
+                    <div *ngIf="esInvalido('fecha_retencion')" class="text-red-500 text-sm mt-1">
+                        La fecha de retención es obligatoria
+                    </div>
+                </div>
+
+                <!-- Mensaje de validación -->
+                <div *ngIf="mensajeValidacion()" class="p-3 rounded-md" [class.bg-red-50]="!validacionOk()"
+                    [class.text-red-700]="!validacionOk()" [class.bg-green-50]="validacionOk()"
+                    [class.text-green-700]="validacionOk()">
+                    {{ mensajeValidacion() }}
+                </div>
+            </form>
+        </div>
+
+        <!-- Footer -->
+        <div class="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3">
+            <button type="button" (click)="cerrar.emit()"
+                class="px-4 py-2 text-gray-700 bg-white border rounded-md hover:bg-gray-50">
+                Cancelar
+            </button>
+            <button type="button" (click)="confirmar()"
+                [disabled]="formulario.invalid || !validacionOk() || guardando()"
+                class="px-4 py-2 text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-2">
+                <div *ngIf="guardando()"
+                    class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                {{ guardando() ? 'Guardando...' : (modo === 'crear' ? 'Crear' : 'Actualizar') }}
+            </button>
+        </div>
+    </div>
+</div>
