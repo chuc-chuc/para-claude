@@ -1,1 +1,67 @@
-<p>modal-comprobante works!</p>
+<div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50">
+    <div class="relative bg-white rounded shadow-xl max-w-lg w-full">
+        <!-- Header -->
+        <div class="flex items-center justify-between p-3 border-b">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-blue-50 rounded-lg">
+                    <svg class="text-blue-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20"
+                        height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <line x1="10" y1="9" x2="8" y2="9"></line>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800">{{ obtenerTituloModal() }}</h3>
+                </div>
+            </div>
+            <button (click)="cerrar.emit()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <svg class="text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20"
+                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <!-- Contenido -->
+        <div class="p-4 space-y-4">
+            <form [formGroup]="formulario" (ngSubmit)="confirmar()">
+                <div class="space-y-1">
+                    <label class="text-xs font-medium text-gray-700">Número de Comprobante *</label>
+                    <input type="text" formControlName="comprobante_contabilidad" placeholder="Ej: COMP-2024-001234"
+                        class="block w-full pl-3 pr-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        [class.border-red-300]="esInvalido('comprobante_contabilidad')">
+                    <div *ngIf="esInvalido('comprobante_contabilidad')" class="text-red-500 text-xs mt-1">
+                        <div *ngIf="formulario.get('comprobante_contabilidad')?.errors?.['required']">Requerido</div>
+                        <div *ngIf="formulario.get('comprobante_contabilidad')?.errors?.['minlength']">Mínimo 3
+                            caracteres</div>
+                        <div *ngIf="formulario.get('comprobante_contabilidad')?.errors?.['pattern']">Formato inválido
+                        </div>
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-medium text-gray-700">Agencia del Gasto</label>
+                    <select formControlName="agencia_gasto_id"
+                        class="block w-full pl-3 pr-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                        <option value="">Seleccione (opcional)</option>
+                        <option *ngFor="let agencia of agencias" [value]="agencia.id">{{ agencia.nombre }}</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-medium text-gray-700">Fecha de Registro</label>
+                    <input type="date" formControlName="fecha_registro_contabilidad"
+                        class="block w-full pl-3 pr-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                </div>
+                <div class="flex justify-end gap-2 mt-3">
+                    <button type="button" (click)="cerrar.emit()"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Cancelar</button>
+                    <button type="submit" [disabled]="formulario.invalid"
+                        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50">Asignar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

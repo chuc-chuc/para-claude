@@ -1,5 +1,5 @@
 // ============================================================================
-// SERVICIO ANGULAR - SISTEMA DE LIQUIDACIÓN
+// SERVICIO ANGULAR ACTUALIZADO CON VALIDACIÓN MASIVA
 // ============================================================================
 
 import { Injectable, inject } from '@angular/core';
@@ -11,12 +11,9 @@ import {
     Agencia,
     CambioSolicitado,
     RetencionFactura,
-    FacturasResponse,
-    PaginacionResponse,
     SolicitarCambioPayload,
     AsignarComprobantePayload,
     AsignarComprobanteMasivoPayload,
-    CargarFacturasParams,
     ApiResponse,
     MENSAJES
 } from '../models/liquidacion-verificacion.models';
@@ -34,14 +31,12 @@ export class LiquidacionService {
 
     private readonly _facturas$ = new BehaviorSubject<FacturaPendiente[]>([]);
     private readonly _agencias$ = new BehaviorSubject<Agencia[]>([]);
-    private readonly _paginacion$ = new BehaviorSubject<PaginacionResponse | null>(null);
     private readonly _cargando$ = new BehaviorSubject<boolean>(false);
     private readonly _error$ = new BehaviorSubject<string | null>(null);
 
     // Observables públicos
     readonly facturas$ = this._facturas$.asObservable();
     readonly agencias$ = this._agencias$.asObservable();
-    readonly paginacion$ = this._paginacion$.asObservable();
     readonly cargando$ = this._cargando$.asObservable();
     readonly error$ = this._error$.asObservable();
 
@@ -50,21 +45,23 @@ export class LiquidacionService {
     // ============================================================================
 
     /**
-     * Cargar facturas pendientes con paginación
+     * Cargar facturas que tengan detalles de liquidación (sin paginación)
      */
-    cargarFacturasPendientes(params: CargarFacturasParams): Observable<boolean> {
+    cargarFacturasConLiquidacion(): Observable<boolean> {
         this._cargando$.next(true);
         this._error$.next(null);
 
         return this.api.query({
-            ruta: 'contabilidad/obtenerFacturasPendientesCompletas',
-            tipo: 'post',
-            body: params
+            ruta: 'contabilidad/obtenerFacturasConLiquidacion',
+            tipo: 'get'
         }).pipe(
-            map((response: ApiResponse<FacturasResponse>) => {
+            map((response: ApiResponse<FacturaPendiente[]>) => {
                 if (response.respuesta === 'success' && response.datos) {
-                    this._facturas$.next(response.datos.facturas);
-                    this._paginacion$.next(response.datos.paginacion);
+                    // Filtrar solo facturas que tengan al menos un detalle
+                    const facturasConDetalles = response.datos.filter(f =>
+                        f.detalles && f.detalles.length > 0
+                    );
+                    this._facturas$.next(facturasConDetalles);
                     return true;
                 } else {
                     throw new Error('Error en la respuesta del servidor');
@@ -105,7 +102,7 @@ export class LiquidacionService {
     }
 
     /**
-     * Validar detalle de liquidación
+     * Validar detalle de liquidación individual
      */
     validarDetalle(detalleId: number): Observable<boolean> {
         return this.api.query({
@@ -131,9 +128,39 @@ export class LiquidacionService {
     }
 
     /**
-     * Solicitar cambio para un detalle
+     * NUEVO: Validar múltiples detalles de liquidación
      */
-    solicitarCambioDetalle(payload: SolicitarCambioPayload): Observable<boolean> {
+    validarDetallesMasivo(detallesIds: number[]): Observable<boolean> {
+        return this.api.query({
+            ruta: 'contabilidad/validarDetallesMasivo',
+            tipo: 'post',
+            body: { detalles_ids: detallesIds }
+        }).pipe(
+            map((response: ApiResponse) => {
+                if (response.respuesta === 'success') {
+                    // Actualizar estados localmente
+                    detallesIds.forEach(id => {
+                        this.actualizarEstadoDetalleLocal(id, 'verificado');
+                    });
+                    this.api.mensajeServidor('success',
+                        `${detallesIds.length} detalles validados correctamente`);
+                    return true;
+                } else {
+                    throw new Error('Error al validar detalles masivamente');
+                }
+            }),
+            catchError((error) => {
+                console.error('Error al validar detalles masivo:', error);
+                this.api.mensajeServidor('error', 'Error al validar los detalles seleccionados');
+                return of(false);
+            })
+        );
+    }
+
+    /**
+     * Solicitar cambio para un detalle (simplificado - solo descripción)
+     */
+    solicitarCambioDetalle(payload: { detalle_id: number; descripcion_cambio: string }): Observable<boolean> {
         return this.api.query({
             ruta: 'contabilidad/solicitarCambioDetalle',
             tipo: 'post',
@@ -183,7 +210,12 @@ export class LiquidacionService {
     /**
      * Asignar comprobante a detalle individual
      */
-    asignarComprobanteDetalle(payload: AsignarComprobantePayload & { detalle_id: number }): Observable<boolean> {
+    asignarComprobanteDetalle(payload: {
+        detalle_id: number;
+        comprobante_contabilidad: string;
+        agencia_gasto_id?: number;
+        fecha_registro_contabilidad?: string;
+    }): Observable<boolean> {
         return this.api.query({
             ruta: 'contabilidad/asignarComprobanteDetalle',
             tipo: 'post',
@@ -209,7 +241,12 @@ export class LiquidacionService {
     /**
      * Asignar comprobante a múltiples detalles
      */
-    asignarComprobanteMasivo(payload: AsignarComprobanteMasivoPayload): Observable<boolean> {
+    asignarComprobanteMasivo(payload: {
+        detalles_ids: number[];
+        comprobante_contabilidad: string;
+        agencia_gasto_id?: number;
+        fecha_registro_contabilidad?: string;
+    }): Observable<boolean> {
         return this.api.query({
             ruta: 'contabilidad/asignarComprobanteMasivo',
             tipo: 'post',
@@ -295,7 +332,7 @@ export class LiquidacionService {
 
     private actualizarComprobanteDetalleLocal(
         detalleId: number,
-        datos: Partial<AsignarComprobantePayload>
+        datos: any
     ): void {
         const facturas = this._facturas$.value;
         const agencias = this._agencias$.value;
@@ -322,7 +359,7 @@ export class LiquidacionService {
 
     private actualizarComprobanteMasivoLocal(
         detallesIds: number[],
-        datos: Partial<AsignarComprobantePayload>
+        datos: any
     ): void {
         const facturas = this._facturas$.value;
         const agencias = this._agencias$.value;
@@ -356,7 +393,6 @@ export class LiquidacionService {
      */
     limpiarEstado(): void {
         this._facturas$.next([]);
-        this._paginacion$.next(null);
         this._error$.next(null);
     }
 
@@ -457,75 +493,10 @@ export class LiquidacionService {
         return { valido: true };
     }
 
-    // ============================================================================
-    // MÉTODOS DE DEBUG
-    // ============================================================================
-
-    /**
-     * Obtener información de debug del estado actual
-     */
-    obtenerInfoDebug(): any {
-        return {
-            facturas: this._facturas$.value,
-            agencias: this._agencias$.value,
-            paginacion: this._paginacion$.value,
-            cargando: this._cargando$.value,
-            error: this._error$.value,
-            estadisticas: this.obtenerEstadisticas()
-        };
-    }
-
-    /**
-     * Logs para debugging
-     */
-    private log(mensaje: string, datos?: any): void {
-        if (datos) {
-            console.log(`[LiquidacionService] ${mensaje}`, datos);
-        } else {
-            console.log(`[LiquidacionService] ${mensaje}`);
-        }
-    }
-
     /**
      * Refrescar datos después de cambios
      */
-    refrescarDatos(params: CargarFacturasParams): Observable<boolean> {
-        this.log('Refrescando datos con parámetros:', params);
-        return this.cargarFacturasPendientes(params);
-    }
-
-    // ============================================================================
-    // MÉTODOS DE CACHÉ Y OPTIMIZACIÓN
-    // ============================================================================
-
-    /**
-     * Verificar si los datos están obsoletos
-     */
-    private ultimaActualizacion = new Date();
-
-    datosObsoletos(minutos: number = 5): boolean {
-        const ahora = new Date();
-        const diferencia = (ahora.getTime() - this.ultimaActualizacion.getTime()) / 1000 / 60;
-        return diferencia > minutos;
-    }
-
-    /**
-     * Marcar datos como actualizados
-     */
-    private marcarActualizado(): void {
-        this.ultimaActualizacion = new Date();
-    }
-
-    /**
-     * Optimizar carga solo si es necesario
-     */
-    cargarSiEsNecesario(params: CargarFacturasParams, forzar = false): Observable<boolean> {
-        if (!forzar && !this.datosObsoletos()) {
-            return of(true);
-        }
-
-        return this.cargarFacturasPendientes(params).pipe(
-            tap(() => this.marcarActualizado())
-        );
+    refrescarDatos(): Observable<boolean> {
+        return this.cargarFacturasConLiquidacion();
     }
 }
