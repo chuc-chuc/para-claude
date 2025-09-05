@@ -346,7 +346,7 @@ export class FacturaSectionComponent implements OnInit, OnDestroy {
       distinctUntilChanged(),
       filter(value => !!value && value.length >= 3) // Solo buscar con 3+ caracteres
     ).subscribe(value => {
-      this.buscarFacturaInterno(value.trim());
+      this.buscarFacturaInterno((value ?? '').trim());
     });
   }
 
