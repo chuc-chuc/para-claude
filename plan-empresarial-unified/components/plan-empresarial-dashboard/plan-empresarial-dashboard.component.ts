@@ -3,8 +3,8 @@ import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { PlanEmpresarialService } from '../../services/plan-empresarial.service';
-import { FacturaSectionComponent } from './sections/factura-section/factura-section.component';
-import { OrdenesSectionComponent } from './sections/ordenes-section/ordenes-section.component';
+import { FacturaSectionComponent } from '../facturas-section/facturas-section.component';
+import { OrdenesSectionComponent } from '../ordenes-section/ordenes-section.component';
 import { LiquidacionesSectionComponent } from './sections/liquidaciones-section/liquidaciones-section.component';
 
 import {
