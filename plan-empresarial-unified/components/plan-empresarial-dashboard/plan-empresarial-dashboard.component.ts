@@ -308,14 +308,17 @@ export class PlanEmpresarialDashboardComponent implements OnInit, OnDestroy {
   // ============================================================================
 
   private configurarMensajes(): void {
-    // Auto-hide de mensajes después de 3 segundos
-    this.ultimoMensaje.subscribe(mensaje => {
-      if (mensaje) {
-        this._mensajeVisible.set(true);
-        setTimeout(() => {
-          this._mensajeVisible.set(false);
-        }, 3000);
-      }
+    // Auto-hide de mensajes después de 3 segundos usando effect
+    import('@angular/core').then(({ effect }) => {
+      effect(() => {
+        const mensaje = this.ultimoMensaje();
+        if (mensaje) {
+          this._mensajeVisible.set(true);
+          setTimeout(() => {
+            this._mensajeVisible.set(false);
+          }, 3000);
+        }
+      });
     });
   }
 

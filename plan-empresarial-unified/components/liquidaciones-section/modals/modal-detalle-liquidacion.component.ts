@@ -275,20 +275,20 @@ import {
                 </app-pago-cheque-form>
 
                 <!-- Formulario de tarjeta -->
-                <app-pago-tarjeta-form 
-                  *ngSwitchCase="'tarjeta'"
-                  [data]="obtenerDatosFormulario()"
-                  (guardar)="onGuardarDesdeFormulario($event)"
-                  (cancelar)="cerrarFormularioEspecifico()">
-                </app-pago-tarjeta-form>
+<app-pago-tarjeta-form
+  *ngSwitchCase="'tarjeta'"
+  [data]="obtenerDatosFormulario()"
+  (guardar)="onGuardarDesdeFormulario($event)"
+  (cancelar)="cerrarFormularioEspecifico()">
+</app-pago-tarjeta-form>
 
-                <!-- Formulario de anticipo -->
-                <app-pago-anticipo-form 
-                  *ngSwitchCase="'anticipo'"
-                  [data]="obtenerDatosFormulario()"
-                  (guardar)="onGuardarDesdeFormulario($event)"
-                  (cancelar)="cerrarFormularioEspecifico()">
-                </app-pago-anticipo-form>
+<!-- Formulario de anticipo -->
+<app-pago-anticipo-form
+  *ngSwitchCase="'anticipo'"
+  [data]="obtenerDatosFormulario()"
+  (guardar)="onGuardarDesdeFormulario($event)"
+  (cancelar)="cerrarFormularioEspecifico()">
+</app-pago-anticipo-form>
               </ng-container>
             </div>
           </form>

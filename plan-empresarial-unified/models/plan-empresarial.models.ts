@@ -653,6 +653,76 @@ export interface EventoComponente<T = any> {
     origen?: string;
     timestamp?: number;
 }
+// ============================================================================
+// AGREGAR ESTA INTERFAZ AL ARCHIVO plan-empresarial.models.ts
+// ============================================================================
+
+/**
+ * Resultado de validación de vencimiento de factura
+ */
+export interface ValidacionVencimiento {
+    excedeDias: boolean;
+    diasTranscurridos: number;
+    mensaje: string;
+    claseCSS: string;
+    requiereAutorizacion: boolean;
+    fechaInicioCalculo?: string;
+    limiteMaximoDias?: number;
+}
+
+// ============================================================================
+// TAMBIÉN AGREGAR ESTAS INTERFACES PARA LOS FORMULARIOS DE PAGO
+// ============================================================================
+
+/**
+ * Datos base que se pasan a todos los formularios de pago
+ */
+export interface DatosFormularioPago {
+    agencia?: string;
+    descripcion?: string;
+    monto?: number;
+    correo_proveedor?: string;
+    factura_numero?: string;
+}
+
+/**
+ * Payload específico para depósito
+ */
+export interface PayloadDeposito extends DatosFormularioPago {
+    id_socio: string;
+    nombre_socio: string;
+    numero_cuenta_deposito: string;
+    producto_cuenta: string;
+    observaciones?: string;
+}
+
+/**
+ * Payload específico para transferencia
+ */
+export interface PayloadTransferencia extends DatosFormularioPago {
+    nombre_cuenta: string;
+    numero_cuenta: string;
+    banco_id: number;
+    tipo_cuenta_id: number;
+    observaciones?: string;
+}
+
+/**
+ * Payload específico para cheque
+ */
+export interface PayloadCheque extends DatosFormularioPago {
+    nombre_beneficiario: string;
+    consignacion: 'Negociable' | 'No Negociable';
+    no_negociable: boolean;
+    observaciones?: string;
+}
+
+/**
+ * Payload específico para tarjeta/anticipo
+ */
+export interface PayloadSimple extends DatosFormularioPago {
+    nota?: string;
+}
 
 // ============================================================================
 // NOTA: Todas las interfaces y tipos ya están exportados directamente 
