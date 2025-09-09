@@ -295,36 +295,6 @@ export class FacturasPlanEmpresarialService {
         );
     }
 
-    /**
-     * Actualizar detalle de liquidación
-     */
-    actualizarDetalle(payload: Partial<GuardarDetalleLiquidacionPayload>): Observable<boolean> {
-        return this.api.query({
-            ruta: ENDPOINTS.ACTUALIZAR_DETALLE,
-            tipo: 'post',
-            body: payload
-        }).pipe(
-            map((response: ApiResponse) => {
-                if (response.respuesta === 'success') {
-                    this.api.mensajeServidor('success', 'Detalle actualizado correctamente');
-                    // Recargar detalles
-                    const factura = this._facturaActual$.value;
-                    if (factura) {
-                        this.cargarDetallesLiquidacion(factura.numero_dte).subscribe();
-                    }
-                    return true;
-                } else {
-                    this.api.mensajeServidor('error', response.respuesta || 'Error al actualizar detalle');
-                    return false;
-                }
-            }),
-            catchError((error) => {
-                console.error('Error al actualizar detalle:', error);
-                this.api.mensajeServidor('error', 'Error al actualizar detalle');
-                return of(false);
-            })
-        );
-    }
 
     // ============================================================================
     // CATÁLOGOS
@@ -551,5 +521,155 @@ export class FacturasPlanEmpresarialService {
     private toNumber(value: any): number {
         const num = typeof value === 'string' ? parseFloat(value) : Number(value);
         return isNaN(num) ? 0 : num;
+    }
+
+
+    /**
+     * Copiar detalle de liquidación
+     */
+    copiarDetalle(id: number): Observable<boolean> {
+        return this.api.query({
+            ruta: ENDPOINTS.REALIZAR_COPIA,
+            tipo: 'post',
+            body: { id }
+        }).pipe(
+            map((response: ApiResponse) => {
+                if (response.respuesta === 'success') {
+                    this.api.mensajeServidor('success', 'Detalle copiado correctamente');
+                    // Recargar detalles
+                    const factura = this._facturaActual$.value;
+                    if (factura) {
+                        this.cargarDetallesLiquidacion(factura.numero_dte).subscribe();
+                    }
+                    return true;
+                } else {
+                    this.api.mensajeServidor('error', response.respuesta || 'Error al copiar detalle');
+                    return false;
+                }
+            }),
+            catchError((error) => {
+                console.error('Error al copiar detalle:', error);
+                this.api.mensajeServidor('error', 'Error al copiar detalle');
+                return of(false);
+            })
+        );
+    }
+
+    /**
+     * Obtener detalle completo por ID
+     */
+    obtenerDetalleCompleto(id: number): Observable<ApiResponse> {
+        return this.api.query({
+            ruta: ENDPOINTS.OBTENER_DETALLE_COMPLETO,
+            tipo: 'post',
+            body: { id }
+        }).pipe(
+            catchError((error) => {
+                console.error('Error al obtener detalle completo:', error);
+                return of({ respuesta: 'error' as const, mensaje: 'Error al obtener detalle completo' } as ApiResponse);
+            })
+        );
+    }
+
+    /**
+     * Guardar todos los detalles pendientes
+     */
+    guardarTodosLosDetalles(): Observable<boolean> {
+        const factura = this._facturaActual$.value;
+        if (!factura?.numero_dte) return of(false);
+
+        const detalles = this._detallesLiquidacion$.value;
+        const detallesSinId = detalles.filter(d => !d.id);
+
+        if (detallesSinId.length === 0) {
+            this.api.mensajeServidor('info', 'Todos los detalles ya están guardados');
+            return of(true);
+        }
+
+        // Crear observables para cada detalle sin ID
+        const guardarOperaciones = detallesSinId.map(detalle => {
+            const payload: GuardarDetalleLiquidacionPayload = {
+                numero_factura: factura.numero_dte,
+                numero_orden: detalle.numero_orden,
+                agencia: detalle.agencia,
+                descripcion: detalle.descripcion,
+                monto: detalle.monto,
+                correo_proveedor: detalle.correo_proveedor || '',
+                forma_pago: detalle.forma_pago,
+                banco: detalle.banco || '',
+                cuenta: detalle.cuenta || ''
+            };
+
+            return this.api.query({
+                ruta: ENDPOINTS.GUARDAR_DETALLE,
+                tipo: 'post',
+                body: payload
+            }).pipe(
+                map((response: ApiResponse) => response.respuesta === 'success'),
+                catchError(() => of(false))
+            );
+        });
+
+        // Ejecutar todas las operaciones de guardado
+        return new Observable(observer => {
+            Promise.all(guardarOperaciones.map(op => op.toPromise())).then(resultados => {
+                const exitosos = resultados.filter(r => r === true).length;
+                const errores = resultados.length - exitosos;
+
+                if (errores === 0) {
+                    this.api.mensajeServidor('success', `${exitosos} detalles guardados correctamente`);
+                    // Recargar detalles después de guardar
+                    this.cargarDetallesLiquidacion(factura.numero_dte).subscribe();
+                    observer.next(true);
+                } else {
+                    this.api.mensajeServidor('warning', `${exitosos} guardados correctamente, ${errores} con errores`);
+                    observer.next(false);
+                }
+                observer.complete();
+            }).catch(() => {
+                this.api.mensajeServidor('error', 'Error al guardar detalles');
+                observer.next(false);
+                observer.complete();
+            });
+        });
+    }
+    actualizarDetalle(payload: Partial<GuardarDetalleLiquidacionPayload>): Observable<boolean> {
+        // Determinar qué endpoint usar según los campos que se están actualizando
+        let endpoint: string = ENDPOINTS.ACTUALIZAR_DETALLE;
+
+        // Si solo se está actualizando monto o agencia, usar endpoint específico
+        const camposEnviados = Object.keys(payload).filter(key => key !== 'id');
+        const soloMontoOAgencia = camposEnviados.length <= 2 &&
+            (camposEnviados.includes('monto') || camposEnviados.includes('agencia'));
+
+        if (soloMontoOAgencia) {
+            endpoint = ENDPOINTS.ACTUALIZAR_MONTO_AGENCIA; // Endpoint específico del sistema anterior
+        }
+
+        return this.api.query({
+            ruta: endpoint,
+            tipo: 'post',
+            body: payload
+        }).pipe(
+            map((response: ApiResponse) => {
+                if (response.respuesta === 'success') {
+                    this.api.mensajeServidor('success', 'Detalle actualizado correctamente');
+                    // Recargar detalles
+                    const factura = this._facturaActual$.value;
+                    if (factura) {
+                        this.cargarDetallesLiquidacion(factura.numero_dte).subscribe();
+                    }
+                    return true;
+                } else {
+                    this.api.mensajeServidor('error', response.respuesta || 'Error al actualizar detalle');
+                    return false;
+                }
+            }),
+            catchError((error) => {
+                console.error('Error al actualizar detalle:', error);
+                this.api.mensajeServidor('error', 'Error al actualizar detalle');
+                return of(false);
+            })
+        );
     }
 }

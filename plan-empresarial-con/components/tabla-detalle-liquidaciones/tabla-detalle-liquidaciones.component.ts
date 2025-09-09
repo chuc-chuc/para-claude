@@ -186,7 +186,7 @@ export class TablaDetalleLiquidacionesComponent implements OnInit, OnDestroy {
             descripcion: '',
             monto: 0,
             correo_proveedor: '',
-            forma_pago: 'deposito',
+            forma_pago: '',
             banco: '',
             cuenta: '',
             editando: false,
@@ -296,10 +296,15 @@ export class TablaDetalleLiquidacionesComponent implements OnInit, OnDestroy {
         if (!detalle) return;
 
         this.cancelarTodasLasEdiciones();
-        detalle.editando = true;
 
-        // Usar monto temporal para edición
-        (detalle as any)._montoTemp = detalle.monto;
+        // IMPORTANTE: Asegurar que las propiedades existen
+        detalle._editandoMonto = true;
+        detalle._montoTemp = detalle.monto;
+
+        // Actualizar el array para que Angular detecte el cambio
+        const nuevosDetalles = [...detalles];
+        nuevosDetalles[index] = { ...detalle };
+        this.detallesLiquidacion.set(nuevosDetalles);
 
         setTimeout(() => {
             if (this.montoInput?.nativeElement) {
@@ -312,9 +317,9 @@ export class TablaDetalleLiquidacionesComponent implements OnInit, OnDestroy {
     guardarMonto(index: number): void {
         const detalles = this.detallesLiquidacion();
         const detalle = detalles[index];
-        if (!detalle || !detalle.editando) return;
+        if (!detalle || !detalle._editandoMonto) return;
 
-        const nuevoMonto = parseFloat(String((detalle as any)._montoTemp || 0));
+        const nuevoMonto = parseFloat(String(detalle._montoTemp || 0));
 
         if (isNaN(nuevoMonto) || nuevoMonto <= 0) {
             Swal.fire({
@@ -352,25 +357,41 @@ export class TablaDetalleLiquidacionesComponent implements OnInit, OnDestroy {
 
         // Actualizar a través del servicio si tiene ID
         if (detalle.id) {
+            console.log('Actualizando monto en servidor:', { id: detalle.id, monto: nuevoMonto });
             this.service.actualizarDetalle({ id: detalle.id, monto: nuevoMonto }).subscribe({
                 next: (success) => {
                     if (success) {
                         detalle.monto = nuevoMonto;
-                        detalle.editando = false;
-                        delete (detalle as any)._montoTemp;
+                        detalle._editandoMonto = false;
+                        delete detalle._montoTemp;
 
                         // Actualizar el array local
                         const nuevosDetalles = [...detalles];
                         nuevosDetalles[index] = detalle;
                         this.detallesLiquidacion.set(nuevosDetalles);
+                    } else {
+                        console.error('Error: El servicio retornó false');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'No se pudo actualizar el monto'
+                        });
                     }
+                },
+                error: (error) => {
+                    console.error('Error en suscripción:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error de conexión al actualizar el monto'
+                    });
                 }
             });
         } else {
             // Actualizar localmente si no tiene ID
             detalle.monto = nuevoMonto;
-            detalle.editando = false;
-            delete (detalle as any)._montoTemp;
+            detalle._editandoMonto = false;
+            delete detalle._montoTemp;
 
             const nuevosDetalles = [...detalles];
             nuevosDetalles[index] = detalle;
@@ -390,8 +411,13 @@ export class TablaDetalleLiquidacionesComponent implements OnInit, OnDestroy {
         const detalles = this.detallesLiquidacion();
         const detalle = detalles[index];
         if (detalle) {
-            detalle.editando = false;
-            delete (detalle as any)._montoTemp;
+            detalle._editandoMonto = false;
+            delete detalle._montoTemp;
+
+            // Actualizar el array para que Angular detecte el cambio
+            const nuevosDetalles = [...detalles];
+            nuevosDetalles[index] = { ...detalle };
+            this.detallesLiquidacion.set(nuevosDetalles);
         }
     }
 
@@ -489,16 +515,25 @@ export class TablaDetalleLiquidacionesComponent implements OnInit, OnDestroy {
 
     private cancelarTodasLasEdiciones(): void {
         const detalles = this.detallesLiquidacion();
-        detalles.forEach(detalle => {
-            if (detalle.editando) {
-                detalle.editando = false;
-                delete (detalle as any)._montoTemp;
+        let cambios = false;
+
+        detalles.forEach((detalle, index) => {
+            if (detalle._editandoMonto) {
+                detalle._editandoMonto = false;
+                delete detalle._montoTemp;
+                cambios = true;
             }
-            if ((detalle as any)._editandoAgencia) {
-                (detalle as any)._editandoAgencia = false;
-                delete (detalle as any)._agenciaTemp;
+            if (detalle._editandoAgencia) {
+                detalle._editandoAgencia = false;
+                delete detalle._agenciaTemp;
+                cambios = true;
             }
         });
+
+        // Si hubo cambios, actualizar el array
+        if (cambios) {
+            this.detallesLiquidacion.set([...detalles]);
+        }
     }
 
     async verDetalleCompleto(index: number): Promise<void> {

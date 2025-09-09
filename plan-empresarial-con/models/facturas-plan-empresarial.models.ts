@@ -34,18 +34,26 @@ export interface DetalleLiquidacionPE {
     descripcion: string;
     monto: number;
     correo_proveedor: string;
-    forma_pago: 'deposito' | 'transferencia' | 'cheque' | 'efectivo';
+    forma_pago: 'deposito' | 'transferencia' | 'cheque' | 'efectivo' | '';
     banco?: string;
     cuenta?: string;
 
-    // Estados para edición inline
+    // Estados para edición inline - PROPIEDADES NECESARIAS AGREGADAS
     editando?: boolean;
     guardando?: boolean;
 
-    // Propiedades temporales para edición inline
+    // Propiedades temporales para edición inline - AGREGADAS
+    _editandoMonto?: boolean;
+    _montoTemp?: number;
     _editandoAgencia?: boolean;
     _agenciaTemp?: string;
-    _montoTemp?: number;
+
+    // Campos adicionales
+    factura_id?: number;
+    fecha_creacion?: string;
+    fecha_actualizacion?: string;
+    datos_especificos?: any;
+    informacion_adicional?: any;
 }
 
 export interface OrdenPE {
@@ -163,7 +171,10 @@ export const ENDPOINTS = {
     OBTENER_ORDENES: 'contabilidad/obtenerOrdenesAutorizadas',
     OBTENER_AGENCIAS: 'contabilidad/buscarNombreLiquidacion',
     OBTENER_BANCOS: 'facturas/bancos/lista',
-    OBTENER_TIPOS_CUENTA: 'facturas/tiposCuenta/lista'
+    OBTENER_TIPOS_CUENTA: 'facturas/tiposCuenta/lista',
+    REALIZAR_COPIA: 'contabilidad/copiarDetalleLiquidacion',
+    OBTENER_DETALLE_COMPLETO: 'contabilidad/obtenerDetalleCompleto',
+    ACTUALIZAR_MONTO_AGENCIA: 'contabilidad/actualizarMontoAgencia'
 } as const;
 
 // ============================================================================

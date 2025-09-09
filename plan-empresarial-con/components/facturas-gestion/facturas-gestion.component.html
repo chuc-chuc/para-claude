@@ -1,0 +1,206 @@
+<!-- ============================================================================ -->
+<!-- TEMPLATE FACTURAS GESTIÓN -->
+<!-- ============================================================================ -->
+
+<div class="w-full h-80 flex flex-col">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col">
+
+        <!-- Header -->
+        <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+            <h2 class="text-sm font-medium text-gray-900">
+                Gestión de <span
+                    class="text-transparent bg-clip-text bg-gradient-to-r to-blue-600 from-indigo-400">Facturas</span>
+            </h2>
+            <button (click)="abrirModalRegistrar()"
+                class="text-gray-400 hover:text-gray-500 p-1 rounded-full transition-colors"
+                title="Registrar nueva factura">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Buscador -->
+        <div class="px-2 py-1 border-b border-gray-100">
+            <div class="flex gap-2">
+                <input [formControl]="searchControl" type="search"
+                    class="pl-3 pr-3 py-2 block w-full text-sm text-gray-900 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    placeholder="Ingrese número DTE y presione Enter o espere (mín. 3 caracteres)" />
+
+                <button (click)="buscarManual()"
+                    class="px-3 py-2 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    Buscar
+                </button>
+
+                <!-- Botones de acción cuando hay factura -->
+                <ng-container *ngIf="facturaActual() as factura">
+                    <button [disabled]="liquidarDeshabilitado(factura) || procesandoLiquidacion()"
+                        [class]="obtenerClaseBotonLiquidar(factura)" (click)="liquidarFactura()">
+                        <span *ngIf="procesandoLiquidacion()">Procesando...</span>
+                        <span *ngIf="!procesandoLiquidacion()">{{ obtenerTextoBotonLiquidar(factura) }}</span>
+                    </button>
+                </ng-container>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div *ngIf="cargandoFactura()" class="flex-1 grid place-items-center p-6">
+            <div class="flex items-center space-x-2 text-gray-500">
+                <div class="w-6 h-6 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                <span class="text-sm">Cargando...</span>
+            </div>
+        </div>
+
+        <!-- Sin factura -->
+        <div *ngIf="!cargandoFactura() && !facturaActual()"
+            class="flex-1 grid place-items-center p-6 text-sm text-gray-500">
+            <span>Busque una factura para ver su detalle</span>
+        </div>
+
+        <!-- Detalle de factura -->
+        <ng-container *ngIf="!cargandoFactura() && facturaActual() as factura">
+            <div class="px-2 py-1 overflow-auto">
+
+                <!-- Badges de estado -->
+                <div class="flex flex-wrap gap-2 mb-3">
+                    <!-- Badge estado liquidación -->
+                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold"
+                        [ngClass]="obtenerColorEstadoLiquidacion(factura.estado_liquidacion)">
+                        {{ factura.estado_liquidacion }}
+                    </span>
+
+                    <!-- Badge de vencimiento -->
+                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold"
+                        [ngClass]="obtenerInfoVencimiento().clase">
+                        {{ obtenerInfoVencimiento().mensaje }}
+                    </span>
+
+                    <!-- Badge estado autorización -->
+                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold capitalize"
+                        [ngClass]="obtenerColorEstadoAutorizacion(factura.estado_autorizacion || 'ninguna')">
+                        {{ factura.estado_autorizacion || 'no requerida' }}
+                    </span>
+                </div>
+
+                <!-- Datos básicos de la factura -->
+                <div class="grid grid-cols-4 gap-x-4 gap-y-2 text-sm mb-2">
+                    <div class="text-gray-500">Número DTE:</div>
+                    <div class="font-medium text-gray-800 col-span-3">
+                        <span class="bg-blue-50 px-2 py-0.5 rounded text-blue-800">
+                            {{ factura.numero_dte }}
+                        </span>
+                    </div>
+
+                    <div class="text-gray-500">Fecha Emisión:</div>
+                    <div class="font-medium text-gray-800 col-span-1">{{ formatearFecha(factura.fecha_emision) }}</div>
+
+                    <div class="text-gray-500">Tipo DTE:</div>
+                    <div class="font-medium text-gray-800 col-span-1">{{ factura.tipo_dte }}</div>
+
+                    <div class="text-gray-500">Autorización:</div>
+                    <div class="font-medium text-gray-800 col-span-3">{{ factura.numero_autorizacion }}</div>
+
+                    <div class="text-gray-500">Emisor:</div>
+                    <div class="font-medium text-gray-800 col-span-3">{{ factura.nombre_emisor }}</div>
+
+                    <div class="text-gray-500">Monto Factura:</div>
+                    <div class="font-semibold text-gray-900 col-span-1">
+                        {{ formatearMonto(factura.monto_total) }}
+                    </div>
+
+                    <div class="text-gray-500">Monto Liquidado:</div>
+                    <div class="font-semibold text-gray-900 col-span-1">
+                        {{ formatearMonto(factura.monto_liquidado) }}
+                    </div>
+                </div>
+
+                <!-- Panel de estado y validaciones -->
+                <div class="mb-3 border rounded p-3" [ngClass]="obtenerInfoVencimiento().clase">
+                    <div class="text-sm font-semibold mb-2">Estado General</div>
+
+                    <div class="text-xs text-gray-600 space-y-1 mb-2">
+                        <div class="p-2 rounded bg-white/50">
+                            {{ obtenerMensajeEstado() }}
+                        </div>
+
+                        <div *ngIf="factura.dias_transcurridos">
+                            <b>Días transcurridos:</b> {{ factura.dias_transcurridos }}
+                        </div>
+
+                        <div *ngIf="detallesLiquidacion().length > 0">
+                            <b>Total detalles:</b> {{ formatearMonto(calcularTotalDetalles()) }}
+                        </div>
+
+                        <div *ngIf="hayDiferenciaMontos()" class="text-red-600">
+                            <b>⚠️ Hay diferencias en los montos</b>
+                        </div>
+                    </div>
+
+                    <!-- Información de autorización si existe -->
+                    <div *ngIf="factura.estado_autorizacion && factura.estado_autorizacion !== 'ninguna'"
+                        class="text-xs text-gray-600 space-y-1 border-t pt-2">
+                        <div class="font-semibold">Información de Autorización:</div>
+                        <div><b>Estado:</b> {{ factura.estado_autorizacion }}</div>
+                        <div *ngIf="factura.motivo_autorizacion"><b>Motivo:</b> {{ factura.motivo_autorizacion }}</div>
+                        <div *ngIf="factura.fecha_solicitud"><b>Fecha solicitud:</b> {{
+                            formatearFecha(factura.fecha_solicitud) }}</div>
+                        <div *ngIf="factura.fecha_autorizacion"><b>Fecha autorización:</b> {{
+                            formatearFecha(factura.fecha_autorizacion) }}</div>
+                        <div *ngIf="factura.comentarios_autorizacion"><b>Comentarios:</b> {{
+                            factura.comentarios_autorizacion }}</div>
+                    </div>
+
+                    <!-- Botón para solicitar autorización si es necesario -->
+                    <div class="mt-2 flex gap-2" *ngIf="requiereAutorizacion(factura)">
+                        <button class="text-xs py-1.5 px-3 bg-orange-600 text-white rounded-md hover:bg-orange-700"
+                            (click)="abrirModalAutorizacion()">
+                            Solicitar autorización especial
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Resumen de detalles de liquidación (si existen) -->
+                <div *ngIf="!cargandoDetalles() && detallesLiquidacion().length > 0" class="border-t pt-2">
+                    <div class="text-sm font-medium text-gray-700 mb-2">
+                        Detalles de Liquidación ({{ detallesLiquidacion().length }})
+                    </div>
+                    <div class="text-xs text-gray-600 space-y-1">
+                        <div *ngFor="let detalle of detallesLiquidacion(); let i = index"
+                            class="flex justify-between items-center py-1 border-b border-gray-100">
+                            <div class="flex-1 truncate">
+                                <span class="font-medium">{{ detalle.numero_orden }}</span> -
+                                {{ detalle.descripcion }}
+                            </div>
+                            <div class="font-medium text-right ml-2">
+                                {{ formatearMonto(detalle.monto) }}
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center py-1 font-semibold border-t">
+                            <span>Total:</span>
+                            <span>{{ formatearMonto(calcularTotalDetalles()) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading detalles -->
+                <div *ngIf="cargandoDetalles()" class="border-t pt-2 text-center">
+                    <div class="text-xs text-gray-500">Cargando detalles...</div>
+                </div>
+
+            </div>
+        </ng-container>
+
+    </div>
+
+    <!-- Modales -->
+    <app-modal-registrar-factura *ngIf="mostrarModalRegistrar()" (cerrar)="cerrarModalRegistrar()"
+        (facturaRegistrada)="onFacturaRegistrada()">
+    </app-modal-registrar-factura>
+
+    <app-modal-solicitar-autorizacion *ngIf="mostrarModalAutorizacion() && facturaActual() as factura"
+        [numeroDte]="factura.numero_dte" [fechaEmision]="factura.fecha_emision"
+        [diasTranscurridos]="factura.dias_transcurridos || 0" (cerrar)="cerrarModalAutorizacion()"
+        (solicitudEnviada)="onSolicitudEnviada()">
+    </app-modal-solicitar-autorizacion>
+
+</div>

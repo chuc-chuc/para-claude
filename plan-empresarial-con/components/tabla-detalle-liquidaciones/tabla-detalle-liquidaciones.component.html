@@ -52,8 +52,8 @@
 
                     <!-- Agencia con edición inline -->
                     <td class="px-3 py-2">
-                        <ng-container *ngIf="(detalle as any)._editandoAgencia; else mostrarAgencia">
-                            <select #agenciaInput [(ngModel)]="(detalle as any)._agenciaTemp" (blur)="guardarAgencia(i)"
+                        <ng-container *ngIf="detalle._editandoAgencia; else mostrarAgencia">
+                            <select #agenciaInput [(ngModel)]="detalle._agenciaTemp" (blur)="guardarAgencia(i)"
                                 (keydown.enter)="guardarAgencia(i)" (keydown.escape)="cancelarEdicionAgencia(i)"
                                 class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                 <option value="" disabled>Seleccione una agencia</option>
@@ -81,10 +81,9 @@
 
                     <!-- Monto con edición inline -->
                     <td class="px-3 py-2">
-                        <ng-container *ngIf="detalle.editando; else mostrarMonto">
-                            <input #montoInput type="number" [(ngModel)]="(detalle as any)._montoTemp"
-                                (blur)="guardarMonto(i)" (keydown.enter)="guardarMonto(i)"
-                                (keydown.escape)="cancelarEdicionMonto(i)"
+                        <ng-container *ngIf="detalle._editandoMonto; else mostrarMonto">
+                            <input #montoInput type="number" [(ngModel)]="detalle._montoTemp" (blur)="guardarMonto(i)"
+                                (keydown.enter)="guardarMonto(i)" (keydown.escape)="cancelarEdicionMonto(i)"
                                 class="w-full border rounded px-2 py-1 text-right text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 min="0" step="0.01" />
                         </ng-container>

@@ -91,6 +91,7 @@ export class ModalDetalleLiquidacionComponent implements OnInit, OnDestroy {
     // INICIALIZACIÓN
     // ============================================================================
 
+    
     inicializarFormulario() {
         this.formularioPrincipal = new FormGroup({
             numero_orden: new FormControl('', [Validators.required]),
