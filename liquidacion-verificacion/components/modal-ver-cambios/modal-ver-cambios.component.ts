@@ -15,48 +15,7 @@ import { LiquidacionService } from '../../services/liquidacion-verificacion.serv
   selector: 'app-modal-ver-cambios',
   standalone: true,
   imports: [CommonModule],
-  template: `
-    <div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50">
-      <div class="relative bg-white rounded shadow-xl max-w-lg w-full">
-        <!-- Header -->
-        <div class="flex items-center justify-between p-3 border-b">
-          <div class="flex items-center gap-3">
-            <div class="p-2 bg-blue-50 rounded-lg">
-              <svg class="text-blue-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-              </svg>
-            </div>
-            <div>
-              <h3 class="text-lg font-semibold text-gray-800">Historial de Cambios</h3>
-            </div>
-          </div>
-          <button (click)="cerrar.emit()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <svg class="text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-        <!-- Contenido -->
-        <div class="p-4 space-y-4 overflow-y-auto max-h-96">
-          <div *ngFor="let cambio of cambios()" class="border rounded p-3">
-            <div class="flex justify-between">
-              <span class="font-medium">{{ obtenerTextoTipoCambio(cambio.tipo_cambio) }}</span>
-              <span class="inline-flex px-2 py-1 text-xs rounded-full" [ngClass]="obtenerColorEstadoCambio(cambio.estado)">
-                {{ obtenerTextoEstadoCambio(cambio.estado) }}
-              </span>
-            </div>
-            <p class="text-sm text-gray-600 mt-2">{{ cambio.descripcion_cambio }}</p>
-            <p class="text-xs text-gray-500 mt-1">{{ formatearFechaHora(cambio.fecha_solicitud) }} por {{ cambio.solicitado_por }}</p>
-          </div>
-          <div *ngIf="cambios().length === 0" class="text-center py-4 text-gray-500">
-            No hay cambios registrados.
-          </div>
-        </div>
-      </div>
-    </div>
-  `
+  templateUrl: './modal-ver-cambios.component.html',
 })
 export class ModalVerCambiosComponent implements OnInit {
   @Input() detalle: DetalleConOrden | null = null;

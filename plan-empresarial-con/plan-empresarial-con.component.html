@@ -1,0 +1,185 @@
+<!-- ============================================================================ -->
+<!-- CONTENEDOR PLAN EMPRESARIAL - TEMPLATE LIMPIO DESDE CERO -->
+<!-- ============================================================================ -->
+
+<div class="w-full min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+    <div class="max-w-7xl mx-auto space-y-6">
+
+        <!-- Header Principal -->
+        <header class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+
+                <!-- Título y Descripción -->
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+                        Plan Empresarial
+                    </h1>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Contenedor principal para gestión de órdenes y anticipos
+                    </p>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="flex items-center gap-3">
+                    <button (click)="actualizarOrdenes()"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Actualizar
+                    </button>
+
+                    <button *ngIf="ordenSeleccionada" (click)="limpiarSeleccion()"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-md transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Limpiar
+                    </button>
+                </div>
+
+            </div>
+        </header>
+
+        <!-- Panel de Orden Seleccionada -->
+        <section *ngIf="ordenSeleccionada"
+            class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
+
+            <div class="flex items-start justify-between">
+                <!-- Información de la Orden -->
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                                Orden #{{ ordenSeleccionada.numero_orden }}
+                            </h3>
+                            <p class="text-sm text-blue-700 dark:text-blue-300">
+                                Orden seleccionada para gestión
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Detalles de la Orden -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="bg-white/60 dark:bg-gray-800/60 rounded-lg p-3">
+                            <p class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide">Total</p>
+                            <p class="text-lg font-semibold text-gray-900 dark:text-white">
+                                Q{{ ordenSeleccionada.total | number:'1.2-2' }}
+                            </p>
+                        </div>
+                        <div class="bg-white/60 dark:bg-gray-800/60 rounded-lg p-3">
+                            <p class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide">Pendiente</p>
+                            <p class="text-lg font-semibold text-amber-600 dark:text-amber-400">
+                                Q{{ ordenSeleccionada.monto_pendiente | number:'1.2-2' }}
+                            </p>
+                        </div>
+                        <div class="bg-white/60 dark:bg-gray-800/60 rounded-lg p-3">
+                            <p class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide">Anticipos</p>
+                            <p class="text-lg font-semibold text-red-600 dark:text-red-400">
+                                {{ ordenSeleccionada.anticipos_pendientes_o_tardios }}
+                            </p>
+                        </div>
+                        <div class="bg-white/60 dark:bg-gray-800/60 rounded-lg p-3">
+                            <p class="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide">Área</p>
+                            <p class="text-lg font-semibold text-gray-900 dark:text-white">
+                                {{ ordenSeleccionada.area || 'N/A' }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botón de Cerrar -->
+                <button (click)="limpiarSeleccion()"
+                    class="ml-4 p-2 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-white/50 dark:hover:bg-gray-800/50 rounded-lg transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- Grid Principal de Componentes -->
+        <main class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- Panel de Órdenes -->
+            <section class="lg:col-span-1">
+                <app-ordenes (refrescar)="onRefrescarOrdenes()" (ordenSeleccionada)="onOrdenSeleccionada($event)">
+                </app-ordenes>
+            </section>
+
+            <!-- Panel para Futuros Componentes -->
+            <section class="lg:col-span-1">
+                <div
+                    class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 h-80">
+                    <div class="flex flex-col items-center justify-center h-full text-center">
+
+                        <!-- Icono -->
+                        <div
+                            class="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-xl flex items-center justify-center mb-4">
+                            <svg class="w-8 h-8 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                        </div>
+
+                        <!-- Contenido -->
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                            Espacio Disponible
+                        </h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 max-w-sm">
+                            Aquí puedes agregar nuevos componentes como facturas, liquidaciones, reportes, etc.
+                        </p>
+
+                        <!-- Badge Informativo -->
+                        <div
+                            class="mt-4 inline-flex items-center px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs font-medium rounded-full">
+                            ✨ Listo para expandir
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer Informativo -->
+        <footer class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+            <div
+                class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-sm text-gray-600 dark:text-gray-400">
+
+                <!-- Información del Sistema -->
+                <div class="flex items-center gap-6">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>Sistema Activo</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                        </svg>
+                        <span>Comunicación entre componentes habilitada</span>
+                    </div>
+                </div>
+
+                <!-- Versión y Copyright -->
+                <div class="text-xs text-gray-500">
+                    Plan Empresarial v1.0 • Contenedor Modular
+                </div>
+
+            </div>
+        </footer>
+
+    </div>
+</div>
