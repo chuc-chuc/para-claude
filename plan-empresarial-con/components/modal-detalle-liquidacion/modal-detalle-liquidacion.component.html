@@ -80,6 +80,7 @@
                 <!-- Número de orden y forma de pago -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- Número de orden -->
+                    <!-- Número de orden -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Número de Orden <span class="text-red-500">*</span>
@@ -88,13 +89,13 @@
                             class="w-full text-sm border rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
                             [ngClass]="{'border-red-300 dark:border-red-500': campoInvalido('numero_orden')}">
                             <option value="">Seleccionar orden...</option>
-                            <option *ngFor="let orden of ordenesDisponibles(); trackBy: trackByOrden"
-                                [value]="orden.numero_orden">
+                            <!-- SOLO ÓRDENES SIN ANTICIPOS PENDIENTES (excepto la actual en edición) -->
+                            <option *ngFor="let orden of ordenesValidasParaSelect; trackBy: trackByOrden" [value]="orden.numero_orden">
                                 Orden #{{ orden.numero_orden }} - Q{{ orden.total | number:'1.2-2' }}
                                 <span *ngIf="orden.area"> ({{ orden.area }})</span>
                             </option>
                         </select>
-
+                    
                         <!-- Info extra de la orden seleccionada -->
                         <div *ngIf="ordenSeleccionadaInfo" class="mt-2 flex flex-wrap gap-2">
                             <span
@@ -218,30 +219,27 @@
                     <!-- Host de subformularios específicos -->
                     <ng-container [ngSwitch]="tipoSeleccionado()">
                         <!-- Formulario de depósito -->
-                        <app-pago-deposito-form *ngSwitchCase="'deposito'" 
-                            [agencias]="agenciasDisponibles()" (guardar)="onGuardarDesdeForm($event)">
-                        </app-pago-deposito-form>
-
+                        <app-form-pago-deposito *ngSwitchCase="'deposito'" [agencias]="agenciasDisponibles()"
+                            (guardar)="onGuardarDesdeForm($event)">
+                        </app-form-pago-deposito>
+                        
                         <!-- Formulario de transferencia -->
-                        <app-pago-transferencia-form *ngSwitchCase="'transferencia'"
-                             [agencias]="agenciasDisponibles()"
+                        <app-form-pago-transferencia *ngSwitchCase="'transferencia'" [agencias]="agenciasDisponibles()"
                             (guardar)="onGuardarDesdeForm($event)">
-                        </app-pago-transferencia-form>
-
+                        </app-form-pago-transferencia>
+                        
                         <!-- Formulario de cheque -->
-                        <app-pago-cheque-form *ngSwitchCase="'cheque'"
-                            [agencias]="agenciasDisponibles()" (guardar)="onGuardarDesdeForm($event)">
-                        </app-pago-cheque-form>
-
+                        <app-form-pago-cheque *ngSwitchCase="'cheque'" [agencias]="agenciasDisponibles()"
+                            (guardar)="onGuardarDesdeForm($event)">
+                        </app-form-pago-cheque>
+                        
                         <!-- Selector de tarjeta -->
-                        <app-pago-tarjeta-select *ngSwitchCase="'tarjeta'" [data]="registro"
-                            (guardar)="onGuardarDesdeForm($event)">
-                        </app-pago-tarjeta-select>
-
+                        <app-select-pago-tarjeta *ngSwitchCase="'tarjeta'" [data]="registro" (guardar)="onGuardarDesdeForm($event)">
+                        </app-select-pago-tarjeta>
+                        
                         <!-- Selector de anticipo -->
-                        <app-pago-anticipo-select *ngSwitchCase="'anticipo'" [data]="registro"
-                            (guardar)="onGuardarDesdeForm($event)">
-                        </app-pago-anticipo-select>
+                        <app-select-pago-anticipo *ngSwitchCase="'anticipo'" [data]="registro" (guardar)="onGuardarDesdeForm($event)">
+                        </app-select-pago-anticipo>
                     </ng-container>
                 </div>
 

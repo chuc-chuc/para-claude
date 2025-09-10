@@ -511,3 +511,4 @@ export function obtenerTextoAutorizacion(estado: EstadoAutorizacion): string {
     };
     return textos[estado] || estado;
 }
+

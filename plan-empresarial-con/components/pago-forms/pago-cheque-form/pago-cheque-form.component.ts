@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators, FormGroup } from '@angula
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
-  selector: 'app-pago-cheque-form',
+  selector: 'app-form-pago-cheque',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './pago-cheque-form.component.html'

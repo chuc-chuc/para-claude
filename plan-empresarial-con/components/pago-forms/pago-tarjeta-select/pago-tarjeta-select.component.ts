@@ -3,7 +3,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 @Component({
-  selector: 'app-pago-tarjeta-select',
+  selector: 'app-select-pago-tarjeta',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './pago-tarjeta-select.component.html'

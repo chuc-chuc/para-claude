@@ -6,7 +6,7 @@ import { Socio, CuentaSocio } from '../../../../solicitudes-anticipo-ordenes/sol
 import { distinctUntilChanged, catchError, of, switchMap } from 'rxjs';
 
 @Component({
-  selector: 'app-pago-deposito-form',
+  selector: 'app-form-pago-deposito',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './pago-deposito-form.component.html'

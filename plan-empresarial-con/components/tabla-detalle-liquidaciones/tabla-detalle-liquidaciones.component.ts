@@ -8,11 +8,12 @@ import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 import Swal from 'sweetalert2';
 
-import { ModalDetalleLiquidacionComponent } from '../modal-detalle-liquidacion/modal-detalle-liquidacion.component';
+import { ModalDetalleLiquidacionNuevoComponent } from '../modal-detalle-liquidacion/modal-detalle-liquidacion.component';
 import { ModalConfirmarEliminacionComponent } from '../modal-confirmar-eliminacion/modal-confirmar-eliminacion.component';
 
 import { FacturasPlanEmpresarialService } from '../../services/facturas-plan-empresarial.service';
 import { DetalleLiquidacionPE, FORMAS_PAGO } from '../../models/facturas-plan-empresarial.models';
+import { toNumber, toString, formatearMonto, formatearFecha } from '../../utils/format.utils';
 
 @Component({
     selector: 'app-tabla-detalle-liquidaciones',
@@ -20,7 +21,7 @@ import { DetalleLiquidacionPE, FORMAS_PAGO } from '../../models/facturas-plan-em
     imports: [
         CommonModule,
         FormsModule,
-        ModalDetalleLiquidacionComponent,
+        ModalDetalleLiquidacionNuevoComponent,
         ModalConfirmarEliminacionComponent
     ],
     templateUrl: './tabla-detalle-liquidaciones.component.html'
@@ -587,23 +588,33 @@ export class TablaDetalleLiquidacionesComponent implements OnInit, OnDestroy {
     }
 
     private mostrarDetalleCompleto(detalleCompleto: any): void {
+        // Normalizar el monto usando la utilidad segura
+        const montoNormalizado = toNumber(detalleCompleto.monto, 0);
+        const fechaCreacion = detalleCompleto.fecha_creacion ?
+            new Date(detalleCompleto.fecha_creacion).toLocaleString('es-GT') : 'No registrada';
+        const fechaActualizacion = detalleCompleto.fecha_actualizacion ?
+            new Date(detalleCompleto.fecha_actualizacion).toLocaleString('es-GT') : 'No registrada';
+
         const html = `
-            <div class="text-left space-y-3">
-                <div><strong>Orden:</strong> ${detalleCompleto.numero_orden}</div>
-                <div><strong>Agencia:</strong> ${detalleCompleto.agencia}</div>
-                <div><strong>Descripción:</strong> ${detalleCompleto.descripcion}</div>
-                <div><strong>Monto:</strong> Q${detalleCompleto.monto.toFixed(2)}</div>
-                <div><strong>Forma de Pago:</strong> ${this.obtenerTextoFormaPago(detalleCompleto.forma_pago)}</div>
-                <div><strong>Correo Proveedor:</strong> ${detalleCompleto.correo_proveedor || 'No especificado'}</div>
-                ${detalleCompleto.banco ? `<div><strong>Banco:</strong> ${detalleCompleto.banco}</div>` : ''}
-                ${detalleCompleto.cuenta ? `<div><strong>Cuenta:</strong> ${detalleCompleto.cuenta}</div>` : ''}
-                ${detalleCompleto.fecha_creacion ? `<div><strong>Fecha Creación:</strong> ${detalleCompleto.fecha_creacion}</div>` : ''}
-                ${detalleCompleto.fecha_actualizacion ? `<div><strong>Fecha Actualización:</strong> ${detalleCompleto.fecha_actualizacion}</div>` : ''}
-            </div>
-        `;
+        <div class="text-left space-y-3">
+            <div><strong>Orden:</strong> ${detalleCompleto.numero_orden || 'No especificada'}</div>
+            <div><strong>Agencia:</strong> ${detalleCompleto.agencia || 'No especificada'}</div>
+            <div><strong>Descripción:</strong> ${detalleCompleto.descripcion || 'Sin descripción'}</div>
+            <div><strong>Monto:</strong> ${formatearMonto(montoNormalizado)}</div>
+            <div><strong>Forma de Pago:</strong> ${this.obtenerTextoFormaPago(detalleCompleto.forma_pago)}</div>
+            <div><strong>Correo Proveedor:</strong> ${detalleCompleto.correo_proveedor || 'No especificado'}</div>
+            ${detalleCompleto.banco ? `<div><strong>Banco:</strong> ${detalleCompleto.banco}</div>` : ''}
+            ${detalleCompleto.cuenta ? `<div><strong>Cuenta:</strong> ${detalleCompleto.cuenta}</div>` : ''}
+            <div><strong>Fecha Creación:</strong> ${fechaCreacion}</div>
+            <div><strong>Fecha Actualización:</strong> ${fechaActualizacion}</div>
+            
+            <!-- Información adicional si existe -->
+            ${detalleCompleto.datos_especificos ? this.formatearDatosEspecificos(detalleCompleto.datos_especificos) : ''}
+        </div>
+    `;
 
         Swal.fire({
-            title: `Detalle de Liquidación #${detalleCompleto.id}`,
+            title: `Detalle de Liquidación #${detalleCompleto.id || 'Nuevo'}`,
             html: html,
             width: '500px',
             confirmButtonText: 'Cerrar',
@@ -611,19 +622,23 @@ export class TablaDetalleLiquidacionesComponent implements OnInit, OnDestroy {
         });
     }
 
+    // 3. TAMBIÉN CORREGIR mostrarDetalleBasico
     private mostrarDetalleBasico(detalle: DetalleLiquidacionPE): void {
+        // Usar la utilidad para normalizar el monto
+        const montoNormalizado = toNumber(detalle.monto, 0);
+
         const html = `
-            <div class="text-left space-y-3">
-                <div><strong>Orden:</strong> ${detalle.numero_orden}</div>
-                <div><strong>Agencia:</strong> ${detalle.agencia}</div>
-                <div><strong>Descripción:</strong> ${detalle.descripcion}</div>
-                <div><strong>Monto:</strong> Q${detalle.monto.toFixed(2)}</div>
-                <div><strong>Forma de Pago:</strong> ${this.obtenerTextoFormaPago(detalle.forma_pago)}</div>
-                <div><strong>Correo Proveedor:</strong> ${detalle.correo_proveedor || 'No especificado'}</div>
-                ${detalle.banco ? `<div><strong>Banco:</strong> ${detalle.banco}</div>` : ''}
-                ${detalle.cuenta ? `<div><strong>Cuenta:</strong> ${detalle.cuenta}</div>` : ''}
-            </div>
-        `;
+        <div class="text-left space-y-3">
+            <div><strong>Orden:</strong> ${detalle.numero_orden || 'No especificada'}</div>
+            <div><strong>Agencia:</strong> ${detalle.agencia || 'No especificada'}</div>
+            <div><strong>Descripción:</strong> ${detalle.descripcion || 'Sin descripción'}</div>
+            <div><strong>Monto:</strong> ${formatearMonto(montoNormalizado)}</div>
+            <div><strong>Forma de Pago:</strong> ${this.obtenerTextoFormaPago(detalle.forma_pago)}</div>
+            <div><strong>Correo Proveedor:</strong> ${detalle.correo_proveedor || 'No especificado'}</div>
+            ${detalle.banco ? `<div><strong>Banco:</strong> ${detalle.banco}</div>` : ''}
+            ${detalle.cuenta ? `<div><strong>Cuenta:</strong> ${detalle.cuenta}</div>` : ''}
+        </div>
+    `;
 
         Swal.fire({
             title: 'Detalle de Liquidación',
@@ -633,6 +648,60 @@ export class TablaDetalleLiquidacionesComponent implements OnInit, OnDestroy {
             confirmButtonColor: '#6b7280'
         });
     }
+    private formatearDatosEspecificos(datosEspecificos: any): string {
+        if (!datosEspecificos || typeof datosEspecificos !== 'object') {
+            return '';
+        }
+
+        let html = '<div class="mt-4 pt-3 border-t border-gray-200"><strong>Información Específica:</strong></div>';
+
+        // Formatear según el tipo de pago
+        Object.keys(datosEspecificos).forEach(key => {
+            const valor = datosEspecificos[key];
+            if (valor !== null && valor !== undefined && valor !== '') {
+                const labelFormateado = this.formatearLabelCampo(key);
+                const valorFormateado = this.formatearValorCampo(key, valor);
+                html += `<div><strong>${labelFormateado}:</strong> ${valorFormateado}</div>`;
+            }
+        });
+
+        return html;
+    }
+    private formatearLabelCampo(key: string): string {
+        const labels: { [key: string]: string } = {
+            'id_socio': 'ID Socio',
+            'nombre_socio': 'Nombre del Socio',
+            'numero_cuenta_deposito': 'Número de Cuenta',
+            'producto_cuenta': 'Producto',
+            'nombre_beneficiario': 'Beneficiario',
+            'consignacion': 'Consignación',
+            'no_negociable': 'No Negociable',
+            'nombre_cuenta': 'Nombre de Cuenta',
+            'numero_cuenta': 'Número de Cuenta',
+            'tipo_cuenta': 'Tipo de Cuenta',
+            'observaciones': 'Observaciones',
+            'nota': 'Nota'
+        };
+
+        return labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+
+    // 6. MÉTODO PARA FORMATEAR VALORES DE CAMPOS
+    private formatearValorCampo(key: string, valor: any): string {
+        // Formatear valores booleanos
+        if (typeof valor === 'boolean') {
+            return valor ? 'Sí' : 'No';
+        }
+
+        // Formatear montos
+        if (key.includes('monto') && typeof valor === 'number') {
+            return formatearMonto(valor);
+        }
+
+        // Valores por defecto
+        return String(valor);
+    }
+
 
     obtenerTextoFormaPago(formaPago: string): string {
         const forma = this.formasPago.find(f => f.id === formaPago);

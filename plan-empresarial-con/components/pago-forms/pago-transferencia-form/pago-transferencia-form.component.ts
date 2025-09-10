@@ -14,7 +14,7 @@ interface TipoCuenta {
 }
 
 @Component({
-  selector: 'app-pago-transferencia-form',
+  selector: 'app-form-pago-transferencia',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './pago-transferencia-form.component.html'
