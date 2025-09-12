@@ -1,9 +1,9 @@
 // ============================================================================
-// SERVICIO FACTURAS PLAN EMPRESARIAL - CORREGIDO Y MEJORADO
+// SERVICIO FACTURAS PLAN EMPRESARIAL - CORREGIDO CON MAPPER ACTUALIZADO
 // ============================================================================
 
 import { Injectable, inject } from '@angular/core';
-import { Observable, BehaviorSubject, map, catchError, of, tap, finalize, switchMap } from 'rxjs';
+import { Observable, BehaviorSubject, map, catchError, of, tap, finalize, switchMap, combineLatest } from 'rxjs';
 import { ServicioGeneralService } from '../../../servicios/servicio-general.service';
 
 import {
@@ -66,6 +66,20 @@ export class FacturasPlanEmpresarialService {
     readonly cargandoBancos$ = this._cargandoBancos$.asObservable();
     readonly cargandoTiposCuenta$ = this._cargandoTiposCuenta$.asObservable();
 
+    // Observable combinado para estado general de carga
+    readonly cargando$ = combineLatest([
+        this._cargandoFactura$,
+        this._cargandoDetalles$,
+        this._procesandoLiquidacion$,
+        this._cargandoCatalogos$,
+        this._cargandoBancos$,
+        this._cargandoTiposCuenta$
+    ]).pipe(
+        map(([factura, detalles, liquidacion, catalogos, bancos, tiposCuenta]) =>
+            factura || detalles || liquidacion || catalogos || bancos || tiposCuenta
+        )
+    );
+
     // ============================================================================
     // MÉTODOS PRINCIPALES - FACTURAS
     // ============================================================================
@@ -91,6 +105,7 @@ export class FacturasPlanEmpresarialService {
             switchMap((response: ApiResponse<FacturaPE[]>) => {
                 if (response.respuesta === 'success' && response.datos && response.datos.length > 0) {
                     const factura = this.mapearFacturaApi(response.datos[0]);
+                    console.log('FACTURA MAPEADA:', factura); // Debug
                     this._facturaActual$.next(factura);
                     // Cargar detalles después de establecer la factura
                     return this.cargarDetallesLiquidacion(factura.numero_dte).pipe(
@@ -113,8 +128,8 @@ export class FacturasPlanEmpresarialService {
     }
 
     /**
-     * Registrar nueva factura
-     */
+     * Registrar nueva factura y automáticamente buscarla para liquidación
+    */
     registrarFactura(payload: RegistrarFacturaPayload): Observable<boolean> {
         this._cargandoFactura$.next(true);
 
@@ -123,13 +138,22 @@ export class FacturasPlanEmpresarialService {
             tipo: 'post',
             body: payload
         }).pipe(
-            map((response: ApiResponse) => {
+            switchMap((response: ApiResponse) => {
                 if (response.respuesta === 'success') {
                     this.api.mensajeServidor('success', 'Factura registrada correctamente');
-                    return true;
+
+                    // Buscar automáticamente la factura recién registrada
+                    return this.buscarFactura(payload.numero_dte).pipe(
+                        map((facturaEncontrada) => {
+                            if (facturaEncontrada) {
+                                this.api.mensajeServidor('info', 'Factura cargada y lista para liquidación');
+                            }
+                            return true;
+                        })
+                    );
                 } else {
                     this.api.mensajeServidor('error', response.respuesta || 'Error al registrar la factura');
-                    return false;
+                    return of(false);
                 }
             }),
             catchError((error) => {
@@ -155,7 +179,6 @@ export class FacturasPlanEmpresarialService {
             map((response: ApiResponse) => {
                 if (response.respuesta === 'success') {
                     this.api.mensajeServidor('success', 'Factura liquidada correctamente');
-                    // Recargar la factura para actualizar el estado
                     this.buscarFactura(numeroDte).subscribe();
                     return true;
                 } else {
@@ -184,7 +207,6 @@ export class FacturasPlanEmpresarialService {
             map((response: ApiResponse) => {
                 if (response.respuesta === 'success') {
                     this.api.mensajeServidor('success', 'Solicitud de autorización enviada correctamente');
-                    // Recargar la factura para actualizar el estado
                     this.buscarFactura(payload.numero_dte).subscribe();
                     return true;
                 } else {
@@ -245,7 +267,6 @@ export class FacturasPlanEmpresarialService {
             map((response: ApiResponse) => {
                 if (response.respuesta === 'success') {
                     this.api.mensajeServidor('success', 'Detalle guardado correctamente');
-                    // Recargar detalles
                     const factura = this._facturaActual$.value;
                     if (factura) {
                         this.cargarDetallesLiquidacion(factura.numero_dte).subscribe();
@@ -276,7 +297,6 @@ export class FacturasPlanEmpresarialService {
             map((response: ApiResponse) => {
                 if (response.respuesta === 'success') {
                     this.api.mensajeServidor('success', 'Detalle eliminado correctamente');
-                    // Recargar detalles
                     const factura = this._facturaActual$.value;
                     if (factura) {
                         this.cargarDetallesLiquidacion(factura.numero_dte).subscribe();
@@ -295,14 +315,10 @@ export class FacturasPlanEmpresarialService {
         );
     }
 
-
     // ============================================================================
     // CATÁLOGOS
     // ============================================================================
 
-    /**
-     * Cargar todos los catálogos necesarios
-     */
     cargarCatalogos(): Observable<boolean> {
         this._cargandoCatalogos$.next(true);
 
@@ -310,8 +326,6 @@ export class FacturasPlanEmpresarialService {
             Promise.all([
                 this.cargarOrdenes().toPromise(),
                 this.cargarAgencias().toPromise(),
-                this.cargarBancos().toPromise(),
-                this.cargarTiposCuenta().toPromise()
             ]).then(() => {
                 observer.next(true);
                 observer.complete();
@@ -324,9 +338,6 @@ export class FacturasPlanEmpresarialService {
         });
     }
 
-    /**
-     * Cargar órdenes autorizadas
-     */
     cargarOrdenes(): Observable<boolean> {
         return this.api.query({
             ruta: ENDPOINTS.OBTENER_ORDENES,
@@ -343,9 +354,6 @@ export class FacturasPlanEmpresarialService {
         );
     }
 
-    /**
-     * Cargar agencias
-     */
     private cargarAgencias(): Observable<boolean> {
         return this.api.query({
             ruta: ENDPOINTS.OBTENER_AGENCIAS,
@@ -362,9 +370,6 @@ export class FacturasPlanEmpresarialService {
         );
     }
 
-    /**
-     * Cargar bancos
-     */
     private cargarBancos(): Observable<boolean> {
         this._cargandoBancos$.next(true);
         return this.api.query({
@@ -383,9 +388,6 @@ export class FacturasPlanEmpresarialService {
         );
     }
 
-    /**
-     * Cargar tipos de cuenta
-     */
     private cargarTiposCuenta(): Observable<boolean> {
         this._cargandoTiposCuenta$.next(true);
         return this.api.query({
@@ -408,17 +410,11 @@ export class FacturasPlanEmpresarialService {
     // MÉTODOS DE UTILIDAD
     // ============================================================================
 
-    /**
-     * Limpiar estado de facturas
-     */
     limpiarFactura(): void {
         this._facturaActual$.next(null);
         this._detallesLiquidacion$.next([]);
     }
 
-    /**
-     * Limpiar todo el estado
-     */
     limpiarEstado(): void {
         this.limpiarFactura();
         this._ordenes$.next([]);
@@ -427,9 +423,6 @@ export class FacturasPlanEmpresarialService {
         this._tiposCuenta$.next([]);
     }
 
-    /**
-     * Obtener valores actuales
-     */
     obtenerFacturaActual(): FacturaPE | null {
         return this._facturaActual$.value;
     }
@@ -450,11 +443,13 @@ export class FacturasPlanEmpresarialService {
     }
 
     // ============================================================================
-    // MAPPERS PRIVADOS
+    // MAPPERS PRIVADOS - CORREGIDOS
     // ============================================================================
 
     private mapearFacturaApi(api: any): FacturaPE {
-        return {
+        console.log('MAPEANDO FACTURA RAW:', api); // Debug
+
+        const facturaMapeda: FacturaPE = {
             id: api.id,
             numero_dte: api.numero_dte || '',
             fecha_emision: api.fecha_emision || '',
@@ -465,13 +460,32 @@ export class FacturasPlanEmpresarialService {
             monto_liquidado: this.toNumber(api.monto_liquidado),
             estado_liquidacion: this.mapearEstadoLiquidacion(api.estado_liquidacion || api.estado),
             moneda: (api.moneda as 'GTQ' | 'USD') || 'GTQ',
-            dias_transcurridos: api.dias_transcurridos || 0,
+
+            // Campos de autorización
+            dias_transcurridos: this.toNumber(api.dias_transcurridos) || 0,
             estado_autorizacion: this.mapearEstadoAutorizacion(api.estado_autorizacion),
             motivo_autorizacion: api.motivo_autorizacion,
             fecha_solicitud: api.fecha_solicitud,
             fecha_autorizacion: api.fecha_autorizacion,
-            comentarios_autorizacion: api.comentarios_autorizacion
+            comentarios_autorizacion: api.comentarios_autorizacion,
+
+            // NUEVOS campos agregados del backend - CORREGIDOS
+            estado_factura: api.estado_factura || 'vigente',
+            cantidad_liquidaciones: this.toNumber(api.cantidad_liquidaciones) || 0,
+            monto_retencion: this.toNumber(api.monto_retencion) || 0,
+            tipo_retencion: api.tipo_retencion || null,
+            solicitado_por: api.solicitado_por,
+            autorizado_por: api.autorizado_por,
+            autorizacion_id: api.autorizacion_id,
+            tiene_autorizacion_tardanza: api.tiene_autorizacion_tardanza,
+            estado: api.estado,
+            estado_id: api.estado_id,
+            fecha_creacion: api.fecha_creacion,
+            fecha_actualizacion: api.fecha_actualizacion
         };
+
+        console.log('FACTURA MAPEADA FINAL:', facturaMapeda); // Debug
+        return facturaMapeda;
     }
 
     private mapearDetalleApi(api: any): DetalleLiquidacionPE {
@@ -502,9 +516,11 @@ export class FacturasPlanEmpresarialService {
         };
     }
 
-    private mapearEstadoLiquidacion(estado: string): 'Pendiente' | 'En Revisión' | 'Liquidado' {
+    private mapearEstadoLiquidacion(estado: string): 'Pendiente' | 'En Revisión' | 'Verificado' | 'Liquidado' | 'Pagado' {
         const s = (estado || '').toLowerCase();
+        if (s.includes('pagado')) return 'Pagado';
         if (s.includes('liquidado')) return 'Liquidado';
+        if (s.includes('verificado')) return 'Verificado';
         if (s.includes('revisión') || s.includes('revision')) return 'En Revisión';
         return 'Pendiente';
     }
@@ -519,14 +535,15 @@ export class FacturasPlanEmpresarialService {
     }
 
     private toNumber(value: any): number {
+        if (value === null || value === undefined || value === '') return 0;
         const num = typeof value === 'string' ? parseFloat(value) : Number(value);
         return isNaN(num) ? 0 : num;
     }
 
+    // ============================================================================
+    // MÉTODOS ADICIONALES
+    // ============================================================================
 
-    /**
-     * Copiar detalle de liquidación
-     */
     copiarDetalle(id: number): Observable<boolean> {
         return this.api.query({
             ruta: ENDPOINTS.REALIZAR_COPIA,
@@ -536,7 +553,6 @@ export class FacturasPlanEmpresarialService {
             map((response: ApiResponse) => {
                 if (response.respuesta === 'success') {
                     this.api.mensajeServidor('success', 'Detalle copiado correctamente');
-                    // Recargar detalles
                     const factura = this._facturaActual$.value;
                     if (factura) {
                         this.cargarDetallesLiquidacion(factura.numero_dte).subscribe();
@@ -555,9 +571,6 @@ export class FacturasPlanEmpresarialService {
         );
     }
 
-    /**
-     * Obtener detalle completo por ID
-     */
     obtenerDetalleCompleto(id: number): Observable<ApiResponse> {
         return this.api.query({
             ruta: ENDPOINTS.OBTENER_DETALLE_COMPLETO,
@@ -571,79 +584,15 @@ export class FacturasPlanEmpresarialService {
         );
     }
 
-    /**
-     * Guardar todos los detalles pendientes
-     */
-    guardarTodosLosDetalles(): Observable<boolean> {
-        const factura = this._facturaActual$.value;
-        if (!factura?.numero_dte) return of(false);
-
-        const detalles = this._detallesLiquidacion$.value;
-        const detallesSinId = detalles.filter(d => !d.id);
-
-        if (detallesSinId.length === 0) {
-            this.api.mensajeServidor('info', 'Todos los detalles ya están guardados');
-            return of(true);
-        }
-
-        // Crear observables para cada detalle sin ID
-        const guardarOperaciones = detallesSinId.map(detalle => {
-            const payload: GuardarDetalleLiquidacionPayload = {
-                numero_factura: factura.numero_dte,
-                numero_orden: detalle.numero_orden,
-                agencia: detalle.agencia,
-                descripcion: detalle.descripcion,
-                monto: detalle.monto,
-                correo_proveedor: detalle.correo_proveedor || '',
-                forma_pago: detalle.forma_pago,
-                banco: detalle.banco || '',
-                cuenta: detalle.cuenta || ''
-            };
-
-            return this.api.query({
-                ruta: ENDPOINTS.GUARDAR_DETALLE,
-                tipo: 'post',
-                body: payload
-            }).pipe(
-                map((response: ApiResponse) => response.respuesta === 'success'),
-                catchError(() => of(false))
-            );
-        });
-
-        // Ejecutar todas las operaciones de guardado
-        return new Observable(observer => {
-            Promise.all(guardarOperaciones.map(op => op.toPromise())).then(resultados => {
-                const exitosos = resultados.filter(r => r === true).length;
-                const errores = resultados.length - exitosos;
-
-                if (errores === 0) {
-                    this.api.mensajeServidor('success', `${exitosos} detalles guardados correctamente`);
-                    // Recargar detalles después de guardar
-                    this.cargarDetallesLiquidacion(factura.numero_dte).subscribe();
-                    observer.next(true);
-                } else {
-                    this.api.mensajeServidor('warning', `${exitosos} guardados correctamente, ${errores} con errores`);
-                    observer.next(false);
-                }
-                observer.complete();
-            }).catch(() => {
-                this.api.mensajeServidor('error', 'Error al guardar detalles');
-                observer.next(false);
-                observer.complete();
-            });
-        });
-    }
     actualizarDetalle(payload: Partial<GuardarDetalleLiquidacionPayload>): Observable<boolean> {
-        // Determinar qué endpoint usar según los campos que se están actualizando
         let endpoint: string = ENDPOINTS.ACTUALIZAR_DETALLE;
 
-        // Si solo se está actualizando monto o agencia, usar endpoint específico
         const camposEnviados = Object.keys(payload).filter(key => key !== 'id');
         const soloMontoOAgencia = camposEnviados.length <= 2 &&
             (camposEnviados.includes('monto') || camposEnviados.includes('agencia'));
 
         if (soloMontoOAgencia) {
-            endpoint = ENDPOINTS.ACTUALIZAR_MONTO_AGENCIA; // Endpoint específico del sistema anterior
+            endpoint = ENDPOINTS.ACTUALIZAR_MONTO_AGENCIA;
         }
 
         return this.api.query({
@@ -654,7 +603,6 @@ export class FacturasPlanEmpresarialService {
             map((response: ApiResponse) => {
                 if (response.respuesta === 'success') {
                     this.api.mensajeServidor('success', 'Detalle actualizado correctamente');
-                    // Recargar detalles
                     const factura = this._facturaActual$.value;
                     if (factura) {
                         this.cargarDetallesLiquidacion(factura.numero_dte).subscribe();

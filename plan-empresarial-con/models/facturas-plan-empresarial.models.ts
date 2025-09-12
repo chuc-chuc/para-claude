@@ -1,5 +1,5 @@
 // ============================================================================
-// MODELOS FACTURAS PLAN EMPRESARIAL - COMPLETO Y SIMPLIFICADO
+// MODELOS FACTURAS PLAN EMPRESARIAL - COMPLETO Y ACTUALIZADO
 // ============================================================================
 
 // ============================================================================
@@ -15,16 +15,31 @@ export interface FacturaPE {
     nombre_emisor: string;
     monto_total: number;
     monto_liquidado: number;
-    estado_liquidacion: 'Pendiente' | 'En Revisión' | 'Liquidado';
+    estado_liquidacion: 'Pendiente' | 'En Revisión' | 'Liquidado' | 'Verificado' | 'Pagado'; // Actualizado
     moneda: 'GTQ' | 'USD';
 
-    // Campos de autorización
+    // Campos de autorización existentes
     dias_transcurridos?: number;
     estado_autorizacion?: 'ninguna' | 'pendiente' | 'aprobada' | 'rechazada';
     motivo_autorizacion?: string;
     fecha_solicitud?: string;
     fecha_autorizacion?: string;
     comentarios_autorizacion?: string;
+
+    // NUEVOS campos agregados del backend
+    estado_factura?: 'vigente' | 'Anulado' | 'suspendida';
+    cantidad_liquidaciones?: number;
+    monto_retencion?: number;
+    tipo_retencion?: number;
+    solicitado_por?: string;
+    autorizado_por?: string;
+    autorizacion_id?: number;
+    tiene_autorizacion_tardanza?: number;
+    estado?: string;
+    estado_id?: number;
+    fecha_creacion?: string;
+    fecha_actualizacion?: string;
+    detalles_liquidacion?: DetalleLiquidacionPE[];
 }
 
 export interface DetalleLiquidacionPE {
@@ -79,6 +94,16 @@ export interface BancoPE {
 export interface TipoCuentaPE {
     id_tipo_cuenta: number;
     nombre: string;
+}
+
+// NUEVA interfaz para permisos de edición
+export interface PermisosEdicion {
+    puedeVer: boolean;
+    puedeEditar: boolean;
+    puedeAgregar: boolean;
+    puedeEliminar: boolean;
+    razon: string;
+    claseCSS: string;
 }
 
 // ============================================================================
@@ -156,7 +181,25 @@ export const FORMAS_PAGO = [
     { id: 'deposito', nombre: 'Depósito' },
     { id: 'transferencia', nombre: 'Transferencia' },
     { id: 'cheque', nombre: 'Cheque' },
-    { id: 'efectivo', nombre: 'Efectivo' }
+    { id: 'anticipo', nombre: 'Anticipo' },
+    { id: 'tarjeta', nombre: 'Tarjeta de Credito' },
+    { id: 'contrasena', nombre: 'Pago por Contraseña' },
+    { id: 'costoasumido', nombre: 'Costo Asumido por el Colaborador' }
+];
+
+// NUEVOS estados agregados
+export const ESTADOS_LIQUIDACION_TODOS = [
+    { codigo: 'Pendiente', nombre: 'Pendiente' },
+    { codigo: 'En Revisión', nombre: 'En Revisión' },
+    { codigo: 'Verificado', nombre: 'Verificado' },
+    { codigo: 'Liquidado', nombre: 'Liquidado' },
+    { codigo: 'Pagado', nombre: 'Pagado' }
+];
+
+export const ESTADOS_FACTURA = [
+    { codigo: 'vigente', nombre: 'Vigente' },
+    { codigo: 'anulada', nombre: 'Anulada' },
+    { codigo: 'suspendida', nombre: 'Suspendida' }
 ];
 
 export const ENDPOINTS = {
@@ -233,7 +276,9 @@ export function obtenerColorEstadoLiquidacion(estado: string): string {
     const colores = {
         'Pendiente': 'bg-yellow-100 text-yellow-800 border-yellow-200',
         'En Revisión': 'bg-blue-100 text-blue-800 border-blue-200',
-        'Liquidado': 'bg-green-100 text-green-800 border-green-200'
+        'Verificado': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+        'Liquidado': 'bg-green-100 text-green-800 border-green-200',
+        'Pagado': 'bg-emerald-100 text-emerald-800 border-emerald-200'
     };
     return colores[estado as keyof typeof colores] || 'bg-gray-100 text-gray-800 border-gray-200';
 }
@@ -246,6 +291,16 @@ export function obtenerColorEstadoAutorizacion(estado: string): string {
         'ninguna': 'bg-gray-100 text-gray-700 border-gray-200'
     };
     return colores[estado as keyof typeof colores] || 'bg-gray-100 text-gray-700 border-gray-200';
+}
+
+// NUEVA función para estado de factura
+export function obtenerColorEstadoFactura(estado: string): string {
+    const colores = {
+        'vigente': 'bg-green-100 text-green-800 border-green-200',
+        'anulada': 'bg-red-100 text-red-800 border-red-200',
+        'suspendida': 'bg-orange-100 text-orange-800 border-orange-200'
+    };
+    return colores[estado as keyof typeof colores] || 'bg-gray-100 text-gray-800 border-gray-200';
 }
 
 export function obtenerColorFormaPago(formaPago: string): string {
@@ -363,6 +418,92 @@ export function validarDetalleLiquidacion(detalle: Partial<DetalleLiquidacionPE>
 }
 
 // ============================================================================
+// NUEVAS FUNCIONES PARA VALIDAR PERMISOS
+// ============================================================================
+
+export function validarPermisosEdicion(
+    factura: FacturaPE | null,
+    validacionDiasHabiles: any = null
+): PermisosEdicion {
+    const permisos: PermisosEdicion = {
+        puedeVer: true,
+        puedeEditar: false,
+        puedeAgregar: false,
+        puedeEliminar: false,
+        razon: 'Sin factura seleccionada',
+        claseCSS: 'text-gray-600 bg-gray-50 border-gray-200'
+    };
+
+    if (!factura) {
+        return permisos;
+    }
+
+    // 1. PRIMERA VALIDACIÓN: Verificar si la factura está vigente
+    if (factura.estado_factura !== 'vigente') {
+        permisos.razon = `Factura ${factura.estado_factura || 'no vigente'} - Solo lectura`;
+        permisos.claseCSS = 'text-red-700 bg-red-50 border-red-200';
+        return permisos;
+    }
+
+    // 2. SEGUNDA VALIDACIÓN: Verificar si el estado de liquidación es "Pendiente"
+    if (factura.estado_liquidacion !== 'Pendiente') {
+        permisos.razon = `Estado '${factura.estado_liquidacion}' - Solo lectura`;
+        permisos.claseCSS = 'text-blue-700 bg-blue-50 border-blue-200';
+        return permisos;
+    }
+
+    // 3. TERCERA VALIDACIÓN: Verificar si tiene detalles de liquidación registrados
+    const tieneDetalles = factura.cantidad_liquidaciones && factura.cantidad_liquidaciones > 0;
+
+    if (tieneDetalles) {
+        // Si tiene detalles registrados previamente, permitir todas las acciones
+        permisos.puedeEditar = true;
+        permisos.puedeAgregar = true;
+        permisos.puedeEliminar = true;
+        permisos.razon = `Edición permitida - ${factura.cantidad_liquidaciones} liquidaciones registradas`;
+        permisos.claseCSS = 'text-green-700 bg-green-50 border-green-200';
+        return permisos;
+    }
+
+    // 4. CUARTA VALIDACIÓN: Para facturas sin detalles previos, verificar tiempo
+    if (!validacionDiasHabiles) {
+        permisos.razon = 'Validando tiempo de liquidación...';
+        permisos.claseCSS = 'text-yellow-700 bg-yellow-50 border-yellow-200';
+        return permisos;
+    }
+
+    const enTiempo = !validacionDiasHabiles.excedeDias;
+
+    if (enTiempo) {
+        // Está dentro del tiempo permitido
+        permisos.puedeEditar = true;
+        permisos.puedeAgregar = true;
+        permisos.puedeEliminar = true;
+        permisos.razon = `Edición permitida - ${validacionDiasHabiles.mensaje}`;
+        permisos.claseCSS = 'text-green-700 bg-green-50 border-green-200';
+        return permisos;
+    }
+
+    // 5. QUINTA VALIDACIÓN: Fuera de tiempo, verificar autorización
+    const tieneAutorizacionAprobada = factura.estado_autorizacion === 'aprobada';
+
+    if (tieneAutorizacionAprobada) {
+        // Tiene autorización aprobada para liquidación tardía
+        permisos.puedeEditar = true;
+        permisos.puedeAgregar = true;
+        permisos.puedeEliminar = true;
+        permisos.razon = `Edición permitida - Autorización aprobada para liquidación tardía`;
+        permisos.claseCSS = 'text-blue-700 bg-blue-50 border-blue-200';
+        return permisos;
+    }
+
+    // 6. CASO FINAL: Fuera de tiempo sin autorización
+    permisos.razon = `Fuera de tiempo - Requiere autorización especial`;
+    permisos.claseCSS = 'text-red-700 bg-red-50 border-red-200';
+    return permisos;
+}
+
+// ============================================================================
 // UTILIDADES DE DATOS
 // ============================================================================
 
@@ -401,8 +542,9 @@ export function hayDiferenciaSignificativa(montoFactura: number, montoDetalles: 
 // TIPOS AUXILIARES
 // ============================================================================
 
-export type EstadoLiquidacion = 'Pendiente' | 'En Revisión' | 'Liquidado';
+export type EstadoLiquidacion = 'Pendiente' | 'En Revisión' | 'Verificado' | 'Liquidado' | 'Pagado';
 export type EstadoAutorizacion = 'ninguna' | 'pendiente' | 'aprobada' | 'rechazada';
+export type EstadoFactura = 'vigente' | 'Anulado' | 'suspendida';
 export type FormaPago = 'deposito' | 'transferencia' | 'cheque' | 'efectivo';
 export type Moneda = 'GTQ' | 'USD';
 
@@ -415,9 +557,11 @@ export interface EstadisticasFactura {
     numero_dte: string;
     monto_total: number;
     monto_liquidado: number;
+    monto_retencion: number;
     cantidad_detalles: number;
     diferencia_montos: number;
     estado_liquidacion: EstadoLiquidacion;
+    estado_factura: EstadoFactura;
     requiere_autorizacion: boolean;
     puede_liquidar: boolean;
 }
@@ -441,6 +585,9 @@ export const CONFIGURACION = {
     DEBOUNCE_BUSQUEDA_MS: 1000,
     TOLERANCIA_DIFERENCIA_MONTOS: 0.01,
     DIAS_LIMITE_AUTORIZACION: 30,
+
+    // Estados que permiten edición
+    ESTADOS_EDITABLES: ['Pendiente'],
 
     // Formatos
     FORMATO_FECHA: 'dd/MM/yyyy',
@@ -467,6 +614,16 @@ export const MENSAJES = {
         SIN_RESULTADOS: 'No se encontraron resultados',
         CAMPOS_REQUERIDOS: 'Complete todos los campos requeridos',
         DIFERENCIA_MONTOS: 'Hay diferencias en los montos que deben revisarse'
+    },
+    PERMISOS: {
+        SIN_FACTURA: 'Seleccione una factura para comenzar',
+        FACTURA_NO_VIGENTE: 'La factura no está vigente - Solo lectura permitida',
+        ESTADO_NO_EDITABLE: 'El estado actual no permite modificaciones',
+        CON_LIQUIDACIONES: 'Puede editar - Tiene liquidaciones registradas',
+        EN_TIEMPO: 'Puede editar - Dentro del tiempo permitido',
+        AUTORIZADO: 'Puede editar - Autorización aprobada para liquidación tardía',
+        FUERA_TIEMPO: 'No puede editar - Fuera de tiempo sin autorización',
+        VALIDANDO: 'Validando permisos...'
     }
 } as const;
 
@@ -483,11 +640,13 @@ export function generarEstadisticasFactura(factura: FacturaPE, detalles: Detalle
         numero_dte: factura.numero_dte,
         monto_total: factura.monto_total,
         monto_liquidado: montoDetalles,
+        monto_retencion: factura.monto_retencion || 0,
         cantidad_detalles: detalles.length,
         diferencia_montos: diferencia,
         estado_liquidacion: factura.estado_liquidacion,
+        estado_factura: factura.estado_factura || 'vigente',
         requiere_autorizacion: requiereAutorizacion,
-        puede_liquidar: factura.estado_liquidacion !== 'Liquidado' &&
+        puede_liquidar: factura.estado_liquidacion === 'Pendiente' &&
             (!requiereAutorizacion || factura.estado_autorizacion === 'aprobada') &&
             diferencia <= CONFIGURACION.TOLERANCIA_DIFERENCIA_MONTOS
     };
@@ -497,7 +656,9 @@ export function obtenerTextoEstado(estado: EstadoLiquidacion): string {
     const textos = {
         'Pendiente': 'Pendiente de liquidación',
         'En Revisión': 'En proceso de revisión',
-        'Liquidado': 'Completamente liquidado'
+        'Verificado': 'Liquidación verificada',
+        'Liquidado': 'Completamente liquidado',
+        'Pagado': 'Liquidado y pagado'
     };
     return textos[estado] || estado;
 }
@@ -512,3 +673,11 @@ export function obtenerTextoAutorizacion(estado: EstadoAutorizacion): string {
     return textos[estado] || estado;
 }
 
+export function obtenerTextoEstadoFactura(estado: EstadoFactura): string {
+    const textos = {
+        'vigente': 'Factura vigente',
+        'Anulado': 'Factura anulada',
+        'suspendida': 'Factura suspendida'
+    };
+    return textos[estado] || estado;
+}
