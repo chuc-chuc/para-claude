@@ -52,7 +52,7 @@ export class LiquidacionService {
         this._error$.next(null);
 
         return this.api.query({
-            ruta: 'contabilidad/obtenerFacturasConLiquidacion',
+            ruta: 'contabilidad/obtenerFacturasConLiquidacionPresupuesto',
             tipo: 'get'
         }).pipe(
             map((response: ApiResponse<FacturaPendiente[]>) => {

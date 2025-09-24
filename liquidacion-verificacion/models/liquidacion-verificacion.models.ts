@@ -11,9 +11,9 @@ export interface FacturaPendiente {
     numero_dte: string;
     fecha_emision: string;
     nombre_emisor: string;
-    tipo_dte: string;
     monto_total: number;
     retencion: number; // NUEVO CAMPO
+    tipo_dte: string;
     estado_liquidacion: 'Pendiente' | 'Verificado' | 'Liquidado' | 'Pagado';
     detalles: DetalleConOrden[];
 }
@@ -36,6 +36,9 @@ export interface DetalleConOrden {
     id_socio?: string; // NUEVO CAMPO
     nombre_socio?: string; // NUEVO CAMPO
     numero_cuenta_deposito?: string; // NUEVO CAMPO
+    comprobante_tesoreria?: string; // NUEVO CAMPO
+    fecha_transferencia?: string; // NUEVO CAMPO
+    banco_transferencia_nombre?: string; // NUEVO CAMPO
 
     // Datos de la orden
     orden: {
@@ -685,7 +688,6 @@ export function generarDatosExportacion(facturas: FacturaPendiente[]): any[] {
                 numero_factura: factura.numero_dte,
                 fecha_emision: factura.fecha_emision,
                 nombre_emisor: factura.nombre_emisor,
-                tipo_dte: factura.tipo_dte,
                 monto_factura: factura.monto_total,
                 retencion: factura.retencion,
                 estado_liquidacion: factura.estado_liquidacion,

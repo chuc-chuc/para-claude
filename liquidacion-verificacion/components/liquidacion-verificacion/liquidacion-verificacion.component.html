@@ -139,7 +139,9 @@
                             <th class="px-3 py-2 text-right font-medium text-gray-700">Monto</th>
                             <th class="px-3 py-2 text-left font-medium text-gray-700">Área/Presupuesto</th>
                             <th class="px-3 py-2 text-left font-medium text-gray-700">Tipo Pago</th>
-                            <th class="px-3 py-2 text-left font-medium text-gray-700">Detalle Deposito</th>
+                            <th class="px-3 py-2 text-left font-medium text-gray-700 min-w-60">Detalle Deposito</th>
+                            <th class="px-3 py-2 text-left font-medium text-gray-700 min-w-60">Detalle Transferencia
+                                Realizada</th>
                             <th class="px-3 py-2 text-left font-medium text-gray-700">Estado</th>
                             <th class="px-3 py-2 text-center font-medium text-gray-700">Acciones</th>
                         </tr>
@@ -162,14 +164,35 @@
                             <td class="px-3 py-2 text-gray-700">{{ detalle.orden.area_nombre }} / {{
                                 detalle.orden.tipo_presupuesto }}</td>
                             <td class="px-3 py-2">
-                                <span
-                                    class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full" [ngClass]="{
+                                    'bg-blue-100 text-blue-800': detalle.forma_pago === 'anticipo',
+                                    'bg-green-100 text-green-800': detalle.forma_pago === 'cheque',
+                                    'bg-yellow-100 text-yellow-800': detalle.forma_pago === 'contrasena',
+                                    'bg-red-100 text-red-800': detalle.forma_pago === 'costoasumido',
+                                    'bg-purple-100 text-purple-800': detalle.forma_pago === 'deposito',
+                                    'bg-violet-100 text-violet-800': detalle.forma_pago === 'tarjeta',
+                                    'bg-sky-100 text-sky-800': detalle.forma_pago === 'transferencia'
+                                }">
                                     {{ detalle.forma_pago }}
                                 </span>
                             </td>
                             <td class="px-3 py-2">
+                                <div *ngIf="detalle.forma_pago == 'deposito'">
                                     {{ detalle.id_socio }} - {{ detalle.nombre_socio }}<br>
                                     Cuenta: {{ detalle.numero_cuenta_deposito || 'N/A' }}
+                                </div>
+                            </td>
+                            <td class="px-3 py-2">
+                                <div *ngIf="detalle.forma_pago == 'transferencia'">
+                                    Comprobante: {{ detalle.comprobante_tesoreria && detalle.comprobante_tesoreria !== 'null'
+                                    ? detalle.comprobante_tesoreria : '-' }}<br>
+                                    Fecha: {{ detalle.fecha_transferencia && detalle.fecha_transferencia !== 'null' ?
+                                    detalle.fecha_transferencia : '-'
+                                    }}<br>
+                                    Banco: {{ detalle.banco_transferencia_nombre && detalle.banco_transferencia_nombre !==
+                                    'null' ? detalle.banco_transferencia_nombre : '-'
+                                    }}
+                                </div>                                
                             </td>
                             <td class="px-3 py-2">
                                 <div class="flex flex-col gap-1">
