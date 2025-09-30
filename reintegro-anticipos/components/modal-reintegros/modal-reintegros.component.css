@@ -1,0 +1,112 @@
+/* modal-reintegros.component.css */
+
+/* Animaciones para el modal */
+.modal-backdrop {
+    backdrop-filter: blur(4px);
+    transition: opacity 0.3s ease-in-out;
+}
+
+.modal-panel {
+    transition: all 0.3s ease-in-out;
+    transform-origin: center;
+}
+
+/* Efectos hover mejorados */
+.modal-header button:hover {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+}
+
+/* Estilos para campos con error */
+.border-red-500:focus {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+/* Animación del spinner de carga */
+@keyframes pulse-border {
+
+    0%,
+    100% {
+        border-color: rgba(168, 85, 247, 0.4);
+    }
+
+    50% {
+        border-color: rgba(168, 85, 247, 0.8);
+    }
+}
+
+.loading-input {
+    animation: pulse-border 2s infinite;
+}
+
+/* Mejoras en la accesibilidad */
+.modal-panel:focus-within {
+    outline: 2px solid rgba(168, 85, 247, 0.5);
+    outline-offset: 2px;
+}
+
+/* Estilos responsive mejorados */
+@media (max-width: 640px) {
+    .modal-panel {
+        margin: 1rem;
+        max-width: calc(100vw - 2rem);
+    }
+
+    .modal-body {
+        max-height: 60vh;
+        padding: 1rem;
+    }
+
+    .grid-cols-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Transiciones suaves para elementos interactivos */
+input,
+select,
+textarea,
+button {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Estados focus mejorados */
+input:focus,
+select:focus,
+textarea:focus {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.15);
+}
+
+/* Estilo para botones deshabilitados */
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* Overlay con mejor performance */
+.modal-overlay {
+    will-change: opacity;
+    backface-visibility: hidden;
+}
+
+/* Scrollbar personalizado para el contenido del modal */
+.modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
