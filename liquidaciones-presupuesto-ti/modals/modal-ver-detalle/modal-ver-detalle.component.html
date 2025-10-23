@@ -1,0 +1,304 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50">
+    <div class="relative bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between p-4 border-b">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-blue-50 rounded-lg">
+                    <svg class="text-blue-500 w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
+                        </path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800">Detalle Completo de Liquidación</h3>
+                    <p class="text-sm text-gray-500">ID: {{detalle?.id}} - Factura: {{factura?.numero_dte}}</p>
+                </div>
+            </div>
+            <button (click)="cerrar.emit()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <svg class="text-gray-400 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                    </path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Contenido -->
+        <div class="max-h-[80vh] overflow-y-auto">
+
+            <!-- Información de la Factura -->
+            <div class="p-4 bg-gray-50 border-b" *ngIf="factura">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3">📄 INFORMACIÓN DE LA FACTURA</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-500">Número DTE:</span>
+                        <p class="font-medium">{{factura.numero_dte}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Emisor:</span>
+                        <p class="font-medium">{{factura.nombre_emisor}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Tipo DTE:</span>
+                        <p class="font-medium">{{factura.tipo_dte}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Fecha Emisión:</span>
+                        <p class="font-medium">{{formatFecha(factura.fecha_emision)}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Estado:</span>
+                        <span class="inline-flex px-2 py-1 text-xs rounded-full"
+                            [ngClass]="getColorEstadoLiquidacion(factura.estado_liquidacion)">
+                            {{factura.estado_liquidacion}}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Total Factura:</span>
+                        <p class="font-bold text-green-600">{{formatMonto(factura.monto_total)}}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información del Detalle -->
+            <div class="p-4 border-b" *ngIf="detalle">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3">🔍 DETALLE DE LIQUIDACIÓN</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-500">Orden:</span>
+                        <p class="font-medium">{{detalle.numero_orden}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Nombre del Gasto:</span>
+                        <p class="font-medium">{{detalle.nombre_gasto}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Agencia Gasto:</span>
+                        <p class="font-medium">{{detalle.agencia_gasto}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Monto:</span>
+                        <p class="font-bold text-green-600">{{formatMonto(detalle.monto)}}</p>
+                    </div>
+                    <div class="md:col-span-2">
+                        <span class="text-gray-500">Descripción:</span>
+                        <p class="font-medium">{{detalle.descripcion}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Forma de Pago:</span>
+                        <span class="inline-flex px-2 py-1 text-xs rounded-full capitalize"
+                            [ngClass]="getColorFormaPago(detalle.forma_pago)">
+                            {{detalle.forma_pago}}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Estado Verificación:</span>
+                        <span class="inline-flex px-2 py-1 text-xs rounded-full capitalize"
+                            [ngClass]="getColorEstadoVerificacion(detalle.estado_verificacion)">
+                            {{detalle.estado_verificacion}}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Usuario Creador:</span>
+                        <p class="font-medium">{{detalle.usuario}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Fecha Creación:</span>
+                        <p class="font-medium">{{formatFechaHora(detalle.fecha_creacion)}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Última Actualización:</span>
+                        <p class="font-medium">{{formatFechaHora(detalle.fecha_actualizacion)}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Cambios Pendientes:</span>
+                        <span class="inline-flex px-2 py-1 text-xs rounded-full"
+                            [ngClass]="detalle.tiene_cambios_pendientes ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'">
+                            {{detalle.tiene_cambios_pendientes ? 'Sí' : 'No'}}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información de Pago según Forma de Pago -->
+            <div class="p-4 border-b" *ngIf="detalle">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3">💳 INFORMACIÓN DE PAGO</h4>
+
+                <!-- Depósito -->
+                <div *ngIf="detalle.forma_pago === 'deposito' && (detalle.id_socio || detalle.nombre_socio)"
+                    class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-500">ID Socio:</span>
+                        <p class="font-medium">{{detalle.id_socio}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Nombre Socio:</span>
+                        <p class="font-medium">{{detalle.nombre_socio}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Número de Cuenta:</span>
+                        <p class="font-medium">{{detalle.numero_cuenta_deposito}}</p>
+                    </div>
+                    <div *ngIf="detalle.observaciones_deposito">
+                        <span class="text-gray-500">Observaciones:</span>
+                        <p class="font-medium">{{detalle.observaciones_deposito}}</p>
+                    </div>
+                </div>
+
+                <!-- Transferencia -->
+                <div *ngIf="detalle.forma_pago === 'transferencia' && (detalle.nombre_cuenta || detalle.numero_cuenta)"
+                    class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-500">Nombre de Cuenta:</span>
+                        <p class="font-medium">{{detalle.nombre_cuenta}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Número de Cuenta:</span>
+                        <p class="font-medium">{{detalle.numero_cuenta}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Banco:</span>
+                        <p class="font-medium">{{detalle.nombre_banco}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Tipo de Cuenta:</span>
+                        <p class="font-medium">{{detalle.tipo}}</p>
+                    </div>
+                    <div *ngIf="detalle.observaciones_transferencia" class="md:col-span-2">
+                        <span class="text-gray-500">Observaciones:</span>
+                        <p class="font-medium">{{detalle.observaciones_transferencia}}</p>
+                    </div>
+                </div>
+
+                <!-- Cheque -->
+                <div *ngIf="detalle.forma_pago === 'cheque' && (detalle.nombre_beneficiario || detalle.consignacion)"
+                    class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-500">Beneficiario:</span>
+                        <p class="font-medium">{{detalle.nombre_beneficiario}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Consignación:</span>
+                        <p class="font-medium">{{detalle.consignacion}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">No Negociable:</span>
+                        <p class="font-medium">{{detalle.no_negociable}}</p>
+                    </div>
+                    <div *ngIf="detalle.observaciones_cheque" class="md:col-span-2">
+                        <span class="text-gray-500">Observaciones:</span>
+                        <p class="font-medium">{{detalle.observaciones_cheque}}</p>
+                    </div>
+                </div>
+
+                <!-- Mensaje si no hay información de pago -->
+                <div *ngIf="!tieneInfoPago()" class="text-center py-4 text-gray-500">
+                    No hay información de pago disponible para este detalle.
+                </div>
+            </div>
+
+            <!-- Información de Presupuesto -->
+            <div class="p-4 border-b" *ngIf="detalle && tieneInfoPresupuesto()">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3">📊 INFORMACIÓN DE PRESUPUESTO</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div *ngIf="detalle.nombre_presupuesto">
+                        <span class="text-gray-500">Nombre Presupuesto:</span>
+                        <p class="font-medium">{{detalle.nombre_presupuesto}}</p>
+                    </div>
+                    <div *ngIf="detalle.cuenta_contable">
+                        <span class="text-gray-500">Cuenta Contable:</span>
+                        <p class="font-medium">{{detalle.cuenta_contable}}</p>
+                    </div>
+                    <div *ngIf="detalle.area_presupuesto">
+                        <span class="text-gray-500">Área Presupuesto:</span>
+                        <p class="font-medium">{{detalle.area_presupuesto}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Total Anticipos:</span>
+                        <p class="font-medium">{{formatMonto(detalle.total_anticipos)}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Cantidad de Cambios:</span>
+                        <p class="font-medium">{{detalle.cantidad_cambios}}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información de Contabilidad -->
+            <div class="p-4 border-b" *ngIf="detalle">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3">📋 INFORMACIÓN DE CONTABILIDAD</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-500">Comprobante Contabilidad:</span>
+                        <p class="font-medium">{{detalle.comprobante_contabilidad || 'Sin asignar'}}</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Fecha Registro Contabilidad:</span>
+                        <p class="font-medium">{{detalle.fecha_registro_contabilidad ? formatFecha(detalle.fecha_registro_contabilidad) : 'Sin fecha'}}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información de Tesorería -->
+            <div class="p-4" *ngIf="detalle && tieneInfoTesoreria()">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3">🏦 INFORMACIÓN DE TESORERÍA</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div *ngIf="detalle.comprobante_tesoreria">
+                        <span class="text-gray-500">Comprobante Tesorería:</span>
+                        <p class="font-medium">{{detalle.comprobante_tesoreria}}</p>
+                    </div>
+                    <div *ngIf="detalle.fecha_transferencia">
+                        <span class="text-gray-500">Fecha Transferencia:</span>
+                        <p class="font-medium">{{formatFecha(detalle.fecha_transferencia)}}</p>
+                    </div>
+                    <div *ngIf="detalle.nombre">
+                        <span class="text-gray-500">Banco de Transferencia:</span>
+                        <p class="font-medium">{{detalle.nombre}}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Retenciones de la Factura -->
+            <div class="p-4 bg-gray-50" *ngIf="retenciones && retenciones.length > 0">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3">🧾 RETENCIONES DE LA FACTURA</h4>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-200 text-xs">
+                            <tr>
+                                <th class="px-2 py-1 text-left">Tipo</th>
+                                <th class="px-2 py-1 text-left">Nombre</th>
+                                <th class="px-2 py-1 text-right">Monto</th>
+                                <th class="px-2 py-1 text-left">Cuenta Contable</th>
+                                <th class="px-2 py-1 text-left">Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let retencion of retenciones" class="border-b">
+                                <td class="px-2 py-2">{{retencion.codigo}}</td>
+                                <td class="px-2 py-2">{{retencion.nombre}}</td>
+                                <td class="px-2 py-2 text-right font-medium text-red-600">
+                                    {{formatMonto(retencion.monto)}}
+                                </td>
+                                <td class="px-2 py-2">{{retencion.cuenta_contable}}</td>
+                                <td class="px-2 py-2">{{formatFecha(retencion.fecha_retencion)}}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-end gap-2 p-4 border-t bg-gray-50">
+            <button type="button" (click)="cerrar.emit()"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                Cerrar
+            </button>
+        </div>
+
+    </div>
+</div>
