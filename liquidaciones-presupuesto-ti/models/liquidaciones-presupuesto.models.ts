@@ -1,12 +1,12 @@
 // ============================================================================
-// MODELOS E INTERFACES PARA LIQUIDACIONES POR PRESUPUESTO
+// MODELOS E INTERFACES PARA LIQUIDACIONES POR PRESUPUESTO - ACTUALIZADO
 // ============================================================================
 
 /**
  * Respuesta estándar del API
  */
 export interface ApiResponse<T = any> {
-    respuesta: 'success'|'consulta_ok' | 'operacion_exitosa' | 'operacion_fallida' | 'campo_requerido';
+    respuesta: 'success' | 'consulta_ok' | 'operacion_exitosa' | 'operacion_fallida' | 'campo_requerido';
     mensajes: string[];
     datos?: T;
 }
@@ -60,6 +60,7 @@ export interface DetalleLiquidacion {
     agencia_gasto: string;
     agencia_gasto_id?: number;
     descripcion: string;
+    correo_proveedor?: string;
     monto: number;
     forma_pago: FormaPago;
     fecha_creacion: string;
@@ -67,7 +68,7 @@ export interface DetalleLiquidacion {
     usuario: string;
     estado_verificacion: EstadoVerificacion;
     comprobante_contabilidad?: string;
-    fecha_registro_contabilidad?: string ;
+    fecha_registro_contabilidad?: string;
 
     // Datos de depósito
     id_socio?: string;
@@ -107,6 +108,11 @@ export interface DetalleLiquidacion {
     // Estado local para UI
     seleccionado?: boolean;
     procesando?: boolean;
+
+    //Otros datos
+    total_liquidaciones_anticipo: number;
+    total_reintegros_anticipo: number;
+    saldo_anticipo: number;
 }
 
 /**
@@ -228,16 +234,16 @@ export type EstadoVerificacion =
     | 'verificado';
 
 /**
- * Formas de pago
+ * Formas de pago - ACTUALIZADO CON TODOS LOS TIPOS
  */
 export type FormaPago =
     | 'anticipo'
+    | 'cheque'
+    | 'contrasena'
     | 'costoasumido'
     | 'deposito'
-    | 'transferencia'
-    | 'cheque'
     | 'tarjeta'
-    | 'contrasena';
+    | 'transferencia';
 
 /**
  * Tipos de cambio solicitado
@@ -258,12 +264,12 @@ export type EstadoCambio =
     | 'realizado';
 
 /**
- * Filtros para búsqueda
+ * Filtros para búsqueda - NUEVO SISTEMA
  */
 export interface FiltrosLiquidacion {
-    factura?: string;
-    orden?: string;
-    usuario?: string;
+    tipoBusqueda?: 'factura' | 'orden' | 'usuario';
+    valorBusqueda?: string;
+    fechaDesde?: string;
     metodoPago?: FormaPago;
     estadoVerificacion?: EstadoVerificacion;
     estadoLiquidacion?: EstadoLiquidacion;
@@ -295,7 +301,8 @@ export const MENSAJES_LIQUIDACIONES = {
         ASIGNAR_COMPROBANTE: 'Error al asignar comprobante',
         CREAR_CAMBIO: 'Error al crear cambio solicitado',
         DATOS_INCOMPLETOS: 'Faltan datos requeridos',
-        OPERACION_NO_PERMITIDA: 'Operación no permitida en el estado actual'
+        OPERACION_NO_PERMITIDA: 'Operación no permitida en el estado actual',
+        SIN_DETALLES_SELECCIONADOS: 'No se han seleccionado detalles para la operación'
     },
     CONFIRMACION: {
         VERIFICAR_DETALLE: '¿Confirma que desea verificar este detalle?',
@@ -359,17 +366,17 @@ export class EstadosHelper {
     }
 
     /**
-     * Obtiene el color de badge según la forma de pago
+     * Obtiene el color de badge según la forma de pago - ACTUALIZADO
      */
     static getColorFormaPago(forma: FormaPago): string {
         switch (forma) {
-            case 'deposito': return 'bg-blue-100 text-blue-700';
-            case 'transferencia': return 'bg-green-100 text-green-700';
-            case 'cheque': return 'bg-purple-100 text-purple-700';
-            case 'tarjeta': return 'bg-orange-100 text-orange-700';
-            case 'costoasumido': return 'bg-red-100 text-red-700'
             case 'anticipo': return 'bg-indigo-100 text-indigo-700';
+            case 'cheque': return 'bg-purple-100 text-purple-700';
             case 'contrasena': return 'bg-violet-100 text-violet-700';
+            case 'costoasumido': return 'bg-red-100 text-red-700';
+            case 'deposito': return 'bg-blue-100 text-blue-700';
+            case 'tarjeta': return 'bg-orange-100 text-orange-700';
+            case 'transferencia': return 'bg-green-100 text-green-700';
             default: return 'bg-gray-100 text-gray-700';
         }
     }

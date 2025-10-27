@@ -1,5 +1,5 @@
 // ============================================================================
-// COMPONENTE PRINCIPAL - LIQUIDACIONES POR PRESUPUESTO (CORREGIDO V2)
+// COMPONENTE PRINCIPAL - LIQUIDACIONES POR PRESUPUESTO (ACTUALIZADO CON NUEVOS FILTROS)
 // ============================================================================
 
 import { CommonModule } from '@angular/common';
@@ -24,7 +24,7 @@ import {
 // Servicios
 import { LiquidacionesPresupuestoService } from '../services/liquidaciones-presupuesto.service';
 
-// Modales (tus modales existentes)
+// Modales
 import { ModalComprobanteComponentti } from '../modals/modal-comprobante/modal-comprobante.component';
 import { ModalSolicitarCambioComponentti } from '../modals/modal-solicitar-cambio/modal-solicitar-cambio.component';
 import { ModalVerCambiosComponentti } from '../modals/modal-ver-cambios/modal-ver-cambios.component';
@@ -79,7 +79,7 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
     // Formulario de filtros
     formularioFiltros!: FormGroup;
 
-    // Computed para estadísticas - CORREGIDO COMPLETAMENTE
+    // Computed para estadísticas
     readonly estadisticas = computed(() => {
         const liquidaciones = this.liquidaciones();
         const todosLosDetalles = liquidaciones.flatMap(liq => liq.detalles);
@@ -94,7 +94,7 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
         };
     });
 
-    // Computed para selecciones - CORREGIDOS
+    // Computed para selecciones
     readonly todosMarcados = computed(() => {
         const liquidaciones = this.liquidaciones();
         if (liquidaciones.length === 0) return false;
@@ -167,10 +167,13 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
     // ============================================================================
 
     private inicializarFormularios(): void {
+        // Obtener fecha guardada en localStorage si existe
+        const fechaGuardada = this.service.obtenerFechaDeStorage();
+
         this.formularioFiltros = this.fb.group({
-            factura: [''],
-            orden: [''],
-            usuario: [''],
+            tipoBusqueda: ['factura'],  // NUEVO: Tipo de búsqueda por defecto
+            valorBusqueda: [''],        // NUEVO: Valor de búsqueda unificado
+            fechaDesde: [fechaGuardada || ''],  // NUEVO: Cargar fecha guardada
             metodoPago: [''],
             estadoVerificacion: [''],
             estadoLiquidacion: ['']
@@ -198,6 +201,21 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
     }
 
     private configurarFiltrosEnTiempoReal(): void {
+        // Listener específico para el campo de fecha (hace petición al servidor)
+        this.formularioFiltros.get('fechaDesde')?.valueChanges
+            .pipe(
+                debounceTime(500),
+                distinctUntilChanged(),
+                takeUntil(this.destroy$)
+            )
+            .subscribe(fecha => {
+                if (fecha) {
+                    this.service.guardarFechaEnStorage(fecha);
+                    this.cargarDatosConFecha(fecha);
+                }
+            });
+
+        // Listener para los demás filtros (solo aplica filtros locales, NO hace petición)
         this.formularioFiltros.valueChanges
             .pipe(
                 debounceTime(300),
@@ -205,13 +223,28 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
                 takeUntil(this.destroy$)
             )
             .subscribe(filtros => {
-                this.aplicarFiltros(filtros);
+                // Excluir fechaDesde ya que tiene su propio listener
+                const { fechaDesde, ...filtrosSinFecha } = filtros;
+                // Aplicar filtros localmente (sin petición al servidor)
+                this.aplicarFiltros(filtrosSinFecha);
             });
     }
 
     private cargarDatos(): void {
-        this.service.cargarLiquidaciones().subscribe();
+        // Verificar si hay fecha guardada en localStorage
+        const fechaGuardada = this.service.obtenerFechaDeStorage();
+
+        if (fechaGuardada) {
+            this.service.cargarLiquidaciones(fechaGuardada).subscribe();
+        } else {
+            this.service.cargarLiquidaciones().subscribe();
+        }
+
         this.service.cargarAgencias().subscribe();
+    }
+
+    private cargarDatosConFecha(fechaDesde: string): void {
+        this.service.cargarLiquidaciones(fechaDesde).subscribe();
     }
 
     // ============================================================================
@@ -227,12 +260,38 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
     }
 
     limpiarFiltros(): void {
-        this.formularioFiltros.reset();
+        // Obtener la fecha actual antes de resetear
+        const fechaActual = this.formularioFiltros.get('fechaDesde')?.value;
+
+        // Resetear solo los filtros de búsqueda, manteniendo la fecha
+        this.formularioFiltros.patchValue({
+            tipoBusqueda: 'factura',
+            valorBusqueda: '',
+            metodoPago: '',
+            estadoVerificacion: '',
+            estadoLiquidacion: ''
+        });
+
+        // Limpiar filtros en el servicio (solo filtros locales)
         this.service.limpiarFiltros();
+
+        // NO eliminar fecha del localStorage
+        // NO hacer petición al servidor
+        // Solo reaplicar los filtros localmente con los datos actuales
+    }
+
+    /**
+     * NUEVO: Limpiar solo el filtro de fecha
+     */
+    limpiarFiltroFecha(): void {
+        this.formularioFiltros.patchValue({ fechaDesde: '' });
+        this.service.eliminarFechaDeStorage();
+        // Recargar datos sin filtro de fecha
+        this.service.cargarLiquidaciones().subscribe();
     }
 
     // ============================================================================
-    // SELECCIÓN - MÉTODOS CORREGIDOS CON ACTUALIZACIÓN FORZADA
+    // SELECCIÓN
     // ============================================================================
 
     toggleSeleccionDetalle(detalleId: number, event?: Event): void {
@@ -296,7 +355,7 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
     }
 
     // ============================================================================
-    // FUNCIONES DE DESCARGA EN EXCEL - NUEVAS Y MEJORADAS
+    // FUNCIONES DE DESCARGA EN EXCEL
     // ============================================================================
 
     async descargarTablaGastos(): Promise<void> {
@@ -311,13 +370,11 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
             return;
         }
 
-        // Verificar si hay elementos seleccionados
         const haySeleccionados = liquidaciones.some(liq =>
             liq.detalles.some(detalle => detalle.seleccionado)
         );
 
         if (haySeleccionados) {
-            // Mostrar opciones de descarga
             const resultado = await Swal.fire({
                 title: 'Tipo de Descarga',
                 text: 'Seleccione qué desea descargar:',
@@ -337,7 +394,6 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
                 this.descargarTodosLosDatos();
             }
         } else {
-            // No hay seleccionados, descargar todo
             this.descargarTodosLosDatos();
         }
     }
@@ -349,10 +405,8 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
         );
 
         if (liquidacionesConSeleccionados.length === 1) {
-            // Una sola factura, descargar directamente
             this.descargarFacturaIndividual(liquidacionesConSeleccionados[0]);
         } else {
-            // Múltiples facturas, crear un libro con múltiples hojas
             this.descargarMultiplesFacturas(liquidacionesConSeleccionados, true);
         }
     }
@@ -365,24 +419,19 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
     private descargarFacturaIndividual(liquidacion: LiquidacionPorFactura): void {
         const detallesParaDescargar = liquidacion.detalles.filter(detalle => detalle.seleccionado);
 
-        // Crear datos para Excel
         const datosGastos = this.prepararDatosGastos(detallesParaDescargar, liquidacion.factura);
         const datosRetenciones = this.prepararDatosRetenciones(liquidacion.retenciones);
 
-        // Crear libro de Excel
         const wb = XLSX.utils.book_new();
 
-        // Hoja de gastos
         const wsGastos = XLSX.utils.json_to_sheet(datosGastos);
         XLSX.utils.book_append_sheet(wb, wsGastos, 'Gastos');
 
-        // Hoja de retenciones (si existen)
         if (datosRetenciones.length > 0) {
             const wsRetenciones = XLSX.utils.json_to_sheet(datosRetenciones);
             XLSX.utils.book_append_sheet(wb, wsRetenciones, 'Retenciones');
         }
 
-        // Descargar archivo
         const nombreArchivo = `Factura_${liquidacion.factura.numero_dte}_${new Date().toISOString().split('T')[0]}.xlsx`;
         XLSX.writeFile(wb, nombreArchivo);
     }
@@ -397,13 +446,11 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
 
             if (detalles.length === 0) return;
 
-            // Datos de gastos
             const datosGastos = this.prepararDatosGastos(detalles, liquidacion.factura);
-            const nombreHojaGastos = `F${index + 1}_Gastos`.substring(0, 31); // Límite de Excel
+            const nombreHojaGastos = `F${index + 1}_Gastos`.substring(0, 31);
             const wsGastos = XLSX.utils.json_to_sheet(datosGastos);
             XLSX.utils.book_append_sheet(wb, wsGastos, nombreHojaGastos);
 
-            // Datos de retenciones (si existen)
             if (liquidacion.retenciones.length > 0) {
                 const datosRetenciones = this.prepararDatosRetenciones(liquidacion.retenciones);
                 const nombreHojaRetenciones = `F${index + 1}_Retenciones`.substring(0, 31);
@@ -412,7 +459,6 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
             }
         });
 
-        // Descargar archivo
         const tipoDescarga = soloSeleccionados ? 'Seleccionados' : 'Todas';
         const nombreArchivo = `Liquidaciones_${tipoDescarga}_${new Date().toISOString().split('T')[0]}.xlsx`;
         XLSX.writeFile(wb, nombreArchivo);
@@ -445,7 +491,6 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
         }));
     }
 
-
     private prepararDatosRetenciones(retenciones: RetencionFactura[]): any[] {
         return retenciones.map(retencion => ({
             'Código': retencion.codigo || 'N/A',
@@ -456,13 +501,13 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
             'Creado Por': retencion.creado_por_nombre || 'N/A'
         }));
     }
+
     private convertirANumero(monto: any): number {
         if (typeof monto === 'number') {
             return monto;
         }
 
         if (typeof monto === 'string') {
-            // Remover símbolos de moneda, comas y espacios
             const numeroLimpio = monto.replace(/[Q,\s$]/g, '');
             const numero = parseFloat(numeroLimpio);
             return isNaN(numero) ? 0 : numero;
@@ -684,7 +729,8 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
     }
 
     refrescarDatos(): void {
-        this.service.refrescarDatos().subscribe();
+        const fechaDesde = this.formularioFiltros.get('fechaDesde')?.value;
+        this.service.refrescarDatos(fechaDesde).subscribe();
     }
 
     facturaCompleta(factura: LiquidacionPorFactura): boolean {
