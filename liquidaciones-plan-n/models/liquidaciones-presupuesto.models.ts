@@ -1,24 +1,14 @@
 // ============================================================================
-// MODELOS E INTERFACES PARA LIQUIDACIONES POR PRESUPUESTO - ACTUALIZADO
+// MODELOS E INTERFACES PARA LIQUIDACIONES POR PRESUPUESTO
 // ============================================================================
 
 /**
  * Respuesta estándar del API
  */
 export interface ApiResponse<T = any> {
-    respuesta: 'success' | 'consulta_ok' | 'operacion_exitosa' | 'operacion_fallida' | 'campo_requerido';
+    respuesta: 'success'|'consulta_ok' | 'operacion_exitosa' | 'operacion_fallida' | 'campo_requerido';
     mensajes: string[];
     datos?: T;
-}
-
-/**
- * Exclusión de factura
- */
-export interface FacturaExcluida {
-    numero_factura: number;
-    falta_monto_liquidacion: 'SI' | 'NO';
-    saldo_anticipo_pendiente: 'SI' | 'NO';
-    usuario_primer_registro: string;
 }
 
 /**
@@ -26,10 +16,8 @@ export interface FacturaExcluida {
  */
 export interface RespuestaLiquidaciones {
     liquidaciones: LiquidacionPorFactura[];
-    exclusiones: FacturaExcluida[];  // NUEVO
     resumen: {
-        total_facturas_incluidas: number;
-        total_facturas_excluidas: number;
+        total_facturas: number;
         total_detalles: number;
         area_consultada: number;
     };
@@ -72,7 +60,6 @@ export interface DetalleLiquidacion {
     agencia_gasto: string;
     agencia_gasto_id?: number;
     descripcion: string;
-    correo_proveedor?: string;
     monto: number;
     forma_pago: FormaPago;
     fecha_creacion: string;
@@ -80,7 +67,7 @@ export interface DetalleLiquidacion {
     usuario: string;
     estado_verificacion: EstadoVerificacion;
     comprobante_contabilidad?: string;
-    fecha_registro_contabilidad?: string;
+    fecha_registro_contabilidad?: string ;
 
     // Datos de depósito
     id_socio?: string;
@@ -120,11 +107,6 @@ export interface DetalleLiquidacion {
     // Estado local para UI
     seleccionado?: boolean;
     procesando?: boolean;
-
-    //Otros datos
-    total_liquidaciones_anticipo: number;
-    total_reintegros_anticipo: number;
-    saldo_anticipo: number;
 }
 
 /**
@@ -246,16 +228,16 @@ export type EstadoVerificacion =
     | 'verificado';
 
 /**
- * Formas de pago - ACTUALIZADO CON TODOS LOS TIPOS
+ * Formas de pago
  */
 export type FormaPago =
     | 'anticipo'
-    | 'cheque'
-    | 'contrasena'
     | 'costoasumido'
     | 'deposito'
+    | 'transferencia'
+    | 'cheque'
     | 'tarjeta'
-    | 'transferencia';
+    | 'contrasena';
 
 /**
  * Tipos de cambio solicitado
@@ -273,16 +255,15 @@ export type TipoCambio =
  */
 export type EstadoCambio =
     | 'pendiente'
-    | 'realizado'
-    | 'aprobado';
+    | 'realizado';
 
 /**
- * Filtros para búsqueda - NUEVO SISTEMA
+ * Filtros para búsqueda
  */
 export interface FiltrosLiquidacion {
-    tipoBusqueda?: 'factura' | 'orden' | 'usuario';
-    valorBusqueda?: string;
-    fechaDesde?: string;
+    factura?: string;
+    orden?: string;
+    usuario?: string;
     metodoPago?: FormaPago;
     estadoVerificacion?: EstadoVerificacion;
     estadoLiquidacion?: EstadoLiquidacion;
@@ -314,8 +295,7 @@ export const MENSAJES_LIQUIDACIONES = {
         ASIGNAR_COMPROBANTE: 'Error al asignar comprobante',
         CREAR_CAMBIO: 'Error al crear cambio solicitado',
         DATOS_INCOMPLETOS: 'Faltan datos requeridos',
-        OPERACION_NO_PERMITIDA: 'Operación no permitida en el estado actual',
-        SIN_DETALLES_SELECCIONADOS: 'No se han seleccionado detalles para la operación'
+        OPERACION_NO_PERMITIDA: 'Operación no permitida en el estado actual'
     },
     CONFIRMACION: {
         VERIFICAR_DETALLE: '¿Confirma que desea verificar este detalle?',
@@ -379,17 +359,17 @@ export class EstadosHelper {
     }
 
     /**
-     * Obtiene el color de badge según la forma de pago - ACTUALIZADO
+     * Obtiene el color de badge según la forma de pago
      */
     static getColorFormaPago(forma: FormaPago): string {
         switch (forma) {
-            case 'anticipo': return 'bg-indigo-100 text-indigo-700';
-            case 'cheque': return 'bg-purple-100 text-purple-700';
-            case 'contrasena': return 'bg-violet-100 text-violet-700';
-            case 'costoasumido': return 'bg-red-100 text-red-700';
             case 'deposito': return 'bg-blue-100 text-blue-700';
-            case 'tarjeta': return 'bg-orange-100 text-orange-700';
             case 'transferencia': return 'bg-green-100 text-green-700';
+            case 'cheque': return 'bg-purple-100 text-purple-700';
+            case 'tarjeta': return 'bg-orange-100 text-orange-700';
+            case 'costoasumido': return 'bg-red-100 text-red-700'
+            case 'anticipo': return 'bg-indigo-100 text-indigo-700';
+            case 'contrasena': return 'bg-violet-100 text-violet-700';
             default: return 'bg-gray-100 text-gray-700';
         }
     }
@@ -400,7 +380,7 @@ export class EstadosHelper {
     static getColorEstadoCambio(estado: EstadoCambio): string {
         switch (estado) {
             case 'pendiente': return 'bg-yellow-100 text-yellow-700';
-            case 'aprobado': return 'bg-green-100 text-green-700';
+            case 'realizado': return 'bg-green-100 text-green-700';
             default: return 'bg-gray-100 text-gray-700';
         }
     }
@@ -426,7 +406,7 @@ export class EstadosHelper {
     static getTextoEstadoCambio(estado: EstadoCambio): string {
         switch (estado) {
             case 'pendiente': return 'Pendiente';
-            case 'aprobado': return 'Realizado';
+            case 'realizado': return 'Realizado';
             default: return 'Desconocido';
         }
     }

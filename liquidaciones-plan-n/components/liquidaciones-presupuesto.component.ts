@@ -1,5 +1,5 @@
 // ============================================================================
-// COMPONENTE PRINCIPAL - LIQUIDACIONES POR PRESUPUESTO (ACTUALIZADO CON NUEVOS FILTROS)
+// COMPONENTE PRINCIPAL - LIQUIDACIONES POR PRESUPUESTO (CORREGIDO V2)
 // ============================================================================
 
 import { CommonModule } from '@angular/common';
@@ -18,18 +18,17 @@ import {
     FiltrosLiquidacion,
     EstadosHelper,
     FormatHelper,
-    MENSAJES_LIQUIDACIONES,
-    FacturaExcluida
+    MENSAJES_LIQUIDACIONES
 } from '../models/liquidaciones-presupuesto.models';
 
 // Servicios
 import { LiquidacionesPresupuestoService } from '../services/liquidaciones-presupuesto.service';
 
-// Modales
-import { ModalComprobanteComponentti } from '../modals/modal-comprobante/modal-comprobante.component';
-import { ModalSolicitarCambioComponentti } from '../modals/modal-solicitar-cambio/modal-solicitar-cambio.component';
-import { ModalVerCambiosComponentti } from '../modals/modal-ver-cambios/modal-ver-cambios.component';
-import { ModalVerDetalleComponentti } from '../modals/modal-ver-detalle/modal-ver-detalle.component';
+// Modales (tus modales existentes)
+import { ModalComprobanteComponentplan } from '../modals/modal-comprobante/modal-comprobante.component';
+import { ModalSolicitarCambioComponentplan } from '../modals/modal-solicitar-cambio/modal-solicitar-cambio.component';
+import { ModalVerCambiosComponentplan } from '../modals/modal-ver-cambios/modal-ver-cambios.component';
+import { ModalVerDetalleComponentplan } from '../modals/modal-ver-detalle/modal-ver-detalle.component';
 
 @Component({
     selector: 'app-liquidaciones-presupuesto-ti',
@@ -38,15 +37,15 @@ import { ModalVerDetalleComponentti } from '../modals/modal-ver-detalle/modal-ve
         CommonModule,
         ReactiveFormsModule,
         FormsModule,
-        ModalComprobanteComponentti,
-        ModalSolicitarCambioComponentti,
-        ModalVerCambiosComponentti,
-        ModalVerDetalleComponentti
+        ModalComprobanteComponentplan,
+        ModalSolicitarCambioComponentplan,
+        ModalVerCambiosComponentplan,
+        ModalVerDetalleComponentplan
     ],
     templateUrl: './liquidaciones-presupuesto.component.html',
     styleUrls: ['./liquidaciones-presupuesto.component.css']
 })
-export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
+export class LiquidacionesPresupuestoComponentplan implements OnInit, OnDestroy {
 
     readonly service = inject(LiquidacionesPresupuestoService);
     private readonly fb = inject(FormBuilder);
@@ -72,7 +71,6 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
     readonly facturaSeleccionadaModal = signal<FacturaResumen | null>(null);
     readonly retencionesSeleccionadasModal = signal<RetencionFactura[]>([]);
     readonly modoComprobante = signal<'individual' | 'masivo'>('individual');
-    readonly exclusiones = signal<FacturaExcluida[]>([]);
 
     // Signals para controlar el estado del header
     readonly headerEstaFijo = signal<boolean>(false);
@@ -81,7 +79,7 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
     // Formulario de filtros
     formularioFiltros!: FormGroup;
 
-    // Computed para estadísticas
+    // Computed para estadísticas - CORREGIDO COMPLETAMENTE
     readonly estadisticas = computed(() => {
         const liquidaciones = this.liquidaciones();
         const todosLosDetalles = liquidaciones.flatMap(liq => liq.detalles);
@@ -96,7 +94,7 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
         };
     });
 
-    // Computed para selecciones
+    // Computed para selecciones - CORREGIDOS
     readonly todosMarcados = computed(() => {
         const liquidaciones = this.liquidaciones();
         if (liquidaciones.length === 0) return false;
@@ -169,13 +167,10 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
     // ============================================================================
 
     private inicializarFormularios(): void {
-        // Obtener fecha guardada en localStorage si existe
-        const fechaGuardada = this.service.obtenerFechaDeStorage();
-
         this.formularioFiltros = this.fb.group({
-            tipoBusqueda: ['factura'],  // NUEVO: Tipo de búsqueda por defecto
-            valorBusqueda: [''],        // NUEVO: Valor de búsqueda unificado
-            fechaDesde: [fechaGuardada || ''],  // NUEVO: Cargar fecha guardada
+            factura: [''],
+            orden: [''],
+            usuario: [''],
             metodoPago: [''],
             estadoVerificacion: [''],
             estadoLiquidacion: ['']
@@ -187,13 +182,6 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
             .pipe(takeUntil(this.destroy$))
             .subscribe(liquidaciones => {
                 this.liquidaciones.set(liquidaciones);
-            });
-
-        // NUEVO: Suscribirse a exclusiones
-        this.service.exclusiones$
-            .pipe(takeUntil(this.destroy$))
-            .subscribe(exclusiones => {
-                this.exclusiones.set(exclusiones);
             });
 
         this.service.cargando$
@@ -210,21 +198,6 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
     }
 
     private configurarFiltrosEnTiempoReal(): void {
-        // Listener específico para el campo de fecha (hace petición al servidor)
-        this.formularioFiltros.get('fechaDesde')?.valueChanges
-            .pipe(
-                debounceTime(500),
-                distinctUntilChanged(),
-                takeUntil(this.destroy$)
-            )
-            .subscribe(fecha => {
-                if (fecha) {
-                    this.service.guardarFechaEnStorage(fecha);
-                    this.cargarDatosConFecha(fecha);
-                }
-            });
-
-        // Listener para los demás filtros (solo aplica filtros locales, NO hace petición)
         this.formularioFiltros.valueChanges
             .pipe(
                 debounceTime(300),
@@ -232,28 +205,13 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
                 takeUntil(this.destroy$)
             )
             .subscribe(filtros => {
-                // Excluir fechaDesde ya que tiene su propio listener
-                const { fechaDesde, ...filtrosSinFecha } = filtros;
-                // Aplicar filtros localmente (sin petición al servidor)
-                this.aplicarFiltros(filtrosSinFecha);
+                this.aplicarFiltros(filtros);
             });
     }
 
     private cargarDatos(): void {
-        // Verificar si hay fecha guardada en localStorage
-        const fechaGuardada = this.service.obtenerFechaDeStorage();
-
-        if (fechaGuardada) {
-            this.service.cargarLiquidaciones(fechaGuardada).subscribe();
-        } else {
-            this.service.cargarLiquidaciones().subscribe();
-        }
-
+        this.service.cargarLiquidaciones().subscribe();
         this.service.cargarAgencias().subscribe();
-    }
-
-    private cargarDatosConFecha(fechaDesde: string): void {
-        this.service.cargarLiquidaciones(fechaDesde).subscribe();
     }
 
     // ============================================================================
@@ -269,38 +227,12 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
     }
 
     limpiarFiltros(): void {
-        // Obtener la fecha actual antes de resetear
-        const fechaActual = this.formularioFiltros.get('fechaDesde')?.value;
-
-        // Resetear solo los filtros de búsqueda, manteniendo la fecha
-        this.formularioFiltros.patchValue({
-            tipoBusqueda: 'factura',
-            valorBusqueda: '',
-            metodoPago: '',
-            estadoVerificacion: '',
-            estadoLiquidacion: ''
-        });
-
-        // Limpiar filtros en el servicio (solo filtros locales)
+        this.formularioFiltros.reset();
         this.service.limpiarFiltros();
-
-        // NO eliminar fecha del localStorage
-        // NO hacer petición al servidor
-        // Solo reaplicar los filtros localmente con los datos actuales
-    }
-
-    /**
-     * NUEVO: Limpiar solo el filtro de fecha
-     */
-    limpiarFiltroFecha(): void {
-        this.formularioFiltros.patchValue({ fechaDesde: '' });
-        this.service.eliminarFechaDeStorage();
-        // Recargar datos sin filtro de fecha
-        this.service.cargarLiquidaciones().subscribe();
     }
 
     // ============================================================================
-    // SELECCIÓN
+    // SELECCIÓN - MÉTODOS CORREGIDOS CON ACTUALIZACIÓN FORZADA
     // ============================================================================
 
     toggleSeleccionDetalle(detalleId: number, event?: Event): void {
@@ -364,7 +296,7 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
     }
 
     // ============================================================================
-    // FUNCIONES DE DESCARGA EN EXCEL
+    // FUNCIONES DE DESCARGA EN EXCEL - NUEVAS Y MEJORADAS
     // ============================================================================
 
     async descargarTablaGastos(): Promise<void> {
@@ -379,11 +311,13 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
             return;
         }
 
+        // Verificar si hay elementos seleccionados
         const haySeleccionados = liquidaciones.some(liq =>
             liq.detalles.some(detalle => detalle.seleccionado)
         );
 
         if (haySeleccionados) {
+            // Mostrar opciones de descarga
             const resultado = await Swal.fire({
                 title: 'Tipo de Descarga',
                 text: 'Seleccione qué desea descargar:',
@@ -403,6 +337,7 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
                 this.descargarTodosLosDatos();
             }
         } else {
+            // No hay seleccionados, descargar todo
             this.descargarTodosLosDatos();
         }
     }
@@ -414,8 +349,10 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
         );
 
         if (liquidacionesConSeleccionados.length === 1) {
+            // Una sola factura, descargar directamente
             this.descargarFacturaIndividual(liquidacionesConSeleccionados[0]);
         } else {
+            // Múltiples facturas, crear un libro con múltiples hojas
             this.descargarMultiplesFacturas(liquidacionesConSeleccionados, true);
         }
     }
@@ -428,19 +365,24 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
     private descargarFacturaIndividual(liquidacion: LiquidacionPorFactura): void {
         const detallesParaDescargar = liquidacion.detalles.filter(detalle => detalle.seleccionado);
 
+        // Crear datos para Excel
         const datosGastos = this.prepararDatosGastos(detallesParaDescargar, liquidacion.factura);
         const datosRetenciones = this.prepararDatosRetenciones(liquidacion.retenciones);
 
+        // Crear libro de Excel
         const wb = XLSX.utils.book_new();
 
+        // Hoja de gastos
         const wsGastos = XLSX.utils.json_to_sheet(datosGastos);
         XLSX.utils.book_append_sheet(wb, wsGastos, 'Gastos');
 
+        // Hoja de retenciones (si existen)
         if (datosRetenciones.length > 0) {
             const wsRetenciones = XLSX.utils.json_to_sheet(datosRetenciones);
             XLSX.utils.book_append_sheet(wb, wsRetenciones, 'Retenciones');
         }
 
+        // Descargar archivo
         const nombreArchivo = `Factura_${liquidacion.factura.numero_dte}_${new Date().toISOString().split('T')[0]}.xlsx`;
         XLSX.writeFile(wb, nombreArchivo);
     }
@@ -455,11 +397,13 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
 
             if (detalles.length === 0) return;
 
+            // Datos de gastos
             const datosGastos = this.prepararDatosGastos(detalles, liquidacion.factura);
-            const nombreHojaGastos = `F${index + 1}_Gastos`.substring(0, 31);
+            const nombreHojaGastos = `F${index + 1}_Gastos`.substring(0, 31); // Límite de Excel
             const wsGastos = XLSX.utils.json_to_sheet(datosGastos);
             XLSX.utils.book_append_sheet(wb, wsGastos, nombreHojaGastos);
 
+            // Datos de retenciones (si existen)
             if (liquidacion.retenciones.length > 0) {
                 const datosRetenciones = this.prepararDatosRetenciones(liquidacion.retenciones);
                 const nombreHojaRetenciones = `F${index + 1}_Retenciones`.substring(0, 31);
@@ -468,6 +412,7 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
             }
         });
 
+        // Descargar archivo
         const tipoDescarga = soloSeleccionados ? 'Seleccionados' : 'Todas';
         const nombreArchivo = `Liquidaciones_${tipoDescarga}_${new Date().toISOString().split('T')[0]}.xlsx`;
         XLSX.writeFile(wb, nombreArchivo);
@@ -500,6 +445,7 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
         }));
     }
 
+
     private prepararDatosRetenciones(retenciones: RetencionFactura[]): any[] {
         return retenciones.map(retencion => ({
             'Código': retencion.codigo || 'N/A',
@@ -510,13 +456,13 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
             'Creado Por': retencion.creado_por_nombre || 'N/A'
         }));
     }
-
     private convertirANumero(monto: any): number {
         if (typeof monto === 'number') {
             return monto;
         }
 
         if (typeof monto === 'string') {
+            // Remover símbolos de moneda, comas y espacios
             const numeroLimpio = monto.replace(/[Q,\s$]/g, '');
             const numero = parseFloat(numeroLimpio);
             return isNaN(numero) ? 0 : numero;
@@ -738,8 +684,7 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
     }
 
     refrescarDatos(): void {
-        const fechaDesde = this.formularioFiltros.get('fechaDesde')?.value;
-        this.service.refrescarDatos(fechaDesde).subscribe();
+        this.service.refrescarDatos().subscribe();
     }
 
     facturaCompleta(factura: LiquidacionPorFactura): boolean {
@@ -781,21 +726,5 @@ export class LiquidacionesPresupuestoComponentti implements OnInit, OnDestroy {
 
     trackByDetalle(index: number, detalle: DetalleLiquidacion): number {
         return detalle.id;
-    }
-
-    // Agregar método helper para obtener color del badge:
-    getColorExclusion(valor: 'SI' | 'NO'): string {
-        return valor === 'SI' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
-    }
-
-    // Agregar método para obtener texto descriptivo:
-    getTextoExclusion(campo: string, valor: 'SI' | 'NO'): string {
-        if (campo === 'falta_monto_liquidacion') {
-            return valor === 'SI' ? 'Falta monto de liquidación' : 'Monto completo';
-        }
-        if (campo === 'saldo_anticipo_pendiente') {
-            return valor === 'SI' ? 'Tiene saldo de anticipo pendiente' : 'Sin saldo pendiente';
-        }
-        return '';
     }
 }

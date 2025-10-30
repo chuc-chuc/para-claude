@@ -1,5 +1,5 @@
 // ============================================================================
-// SERVICIO PARA LIQUIDACIONES POR PRESUPUESTO - ACTUALIZADO
+// SERVICIO PARA LIQUIDACIONES POR PRESUPUESTO
 // ============================================================================
 
 import { Injectable, inject } from '@angular/core';
@@ -20,8 +20,7 @@ import {
     ActualizarCambioPayload,
     FiltrosLiquidacion,
     Agencia,
-    MENSAJES_LIQUIDACIONES,
-    FacturaExcluida
+    MENSAJES_LIQUIDACIONES
 } from '../models/liquidaciones-presupuesto.models';
 
 @Injectable({
@@ -30,9 +29,6 @@ import {
 export class LiquidacionesPresupuestoService {
 
     private readonly api = inject(ServicioGeneralService);
-
-    // Constante para localStorage
-    private readonly FECHA_STORAGE_KEY = 'liquidaciones_fecha_filtro';
 
     // ============================================================================
     // ESTADO DEL SERVICIO
@@ -44,7 +40,6 @@ export class LiquidacionesPresupuestoService {
     private readonly _cargando$ = new BehaviorSubject<boolean>(false);
     private readonly _error$ = new BehaviorSubject<string | null>(null);
     private readonly _filtros$ = new BehaviorSubject<FiltrosLiquidacion>({});
-    private readonly _exclusiones$ = new BehaviorSubject<FacturaExcluida[]>([]);
 
     // Observables públicos
     readonly liquidaciones$ = this._liquidaciones$.asObservable();
@@ -53,7 +48,6 @@ export class LiquidacionesPresupuestoService {
     readonly cargando$ = this._cargando$.asObservable();
     readonly error$ = this._error$.asObservable();
     readonly filtros$ = this._filtros$.asObservable();
-    readonly exclusiones$ = this._exclusiones$.asObservable();
 
     // ============================================================================
     // MÉTODOS PRINCIPALES
@@ -61,31 +55,20 @@ export class LiquidacionesPresupuestoService {
 
     /**
      * Cargar liquidaciones por presupuesto para el área 77
-     * ACTUALIZADO: Ahora acepta filtro de fecha
      */
-    cargarLiquidaciones(fechaDesde?: string): Observable<boolean> {
+    cargarLiquidaciones(): Observable<boolean> {
         this._cargando$.next(true);
         this._error$.next(null);
 
-        const body: any = { area: 77 };
-        if (fechaDesde) {
-            body.fecha_hasta = fechaDesde;
-        }
-
         return this.api.query({
-            ruta: 'contabilidad/obtenerLiquidacionesPorPresupuestoN',
+            ruta: 'contabilidad/obtenerLiquidacionesPorPlanNN',
             tipo: 'post',
-            body
+            body: {area: 78}
         }).pipe(
             map((response: ApiResponse<RespuestaLiquidaciones>) => {
                 if (response.respuesta === 'success' && response.datos) {
-                    let liquidaciones = response.datos.liquidaciones || [];
-                    const exclusiones = response.datos.exclusiones || [];  // NUEVO
-
-                    liquidaciones = this._ordenarPorFechaCreacion(liquidaciones);
-
+                    const liquidaciones = response.datos.liquidaciones || [];
                     this._liquidaciones$.next(liquidaciones);
-                    this._exclusiones$.next(exclusiones);  // NUEVO
                     this._aplicarFiltros();
                     return true;
                 } else {
@@ -102,39 +85,6 @@ export class LiquidacionesPresupuestoService {
         );
     }
 
-    // Agregar método para obtener exclusiones actuales:
-    obtenerExclusionesActuales(): FacturaExcluida[] {
-        return this._exclusiones$.value;
-    }
-
-
-    /**
-     * NUEVO: Ordenar liquidaciones por fecha de creación del detalle más antiguo (descendente)
-     */
-    private _ordenarPorFechaCreacion(liquidaciones: LiquidacionPorFactura[]): LiquidacionPorFactura[] {
-        return liquidaciones.sort((a, b) => {
-            // Obtener la fecha más antigua de cada factura
-            const fechaA = this._obtenerFechaMasAntiguaDetalle(a.detalles);
-            const fechaB = this._obtenerFechaMasAntiguaDetalle(b.detalles);
-
-            // Ordenar descendente (más antigua primero)
-            return new Date(fechaA).getTime() - new Date(fechaB).getTime();
-        });
-    }
-
-    /**
-     * NUEVO: Obtener la fecha más antigua de los detalles de una factura
-     */
-    private _obtenerFechaMasAntiguaDetalle(detalles: DetalleLiquidacion[]): string {
-        if (detalles.length === 0) return new Date().toISOString();
-
-        return detalles.reduce((fechaMasAntigua, detalle) => {
-            const fechaDetalle = new Date(detalle.fecha_creacion).getTime();
-            const fechaActual = new Date(fechaMasAntigua).getTime();
-            return fechaDetalle < fechaActual ? detalle.fecha_creacion : fechaMasAntigua;
-        }, detalles[0].fecha_creacion);
-    }
-
     /**
      * Verificar detalle individual con SweetAlert
      */
@@ -142,7 +92,7 @@ export class LiquidacionesPresupuestoService {
         const payload: VerificarDetallePayload = { id: detalleId };
 
         return this.api.query({
-            ruta: 'contabilidad/verificarDetalleUnitarioPorPresupuestoN',
+            ruta: 'contabilidad/verificarDetalleUnitarioPorPlanNN',
             tipo: 'post',
             body: payload
         }).pipe(
@@ -170,7 +120,7 @@ export class LiquidacionesPresupuestoService {
         const payload: VerificarDetalleMasivoPayload = { detalles_ids: detallesIds };
 
         return this.api.query({
-            ruta: 'contabilidad/verificarDetalleMasivoPorPresupuestoN',
+            ruta: 'contabilidad/verificarDetalleMasivoPorPlanNN',
             tipo: 'post',
             body: payload
         }).pipe(
@@ -199,7 +149,7 @@ export class LiquidacionesPresupuestoService {
         const payload = { ...datos, id: detalleId };
 
         return this.api.query({
-            ruta: 'contabilidad/asignarComprobanteUnitarioPorPresupuestoN',
+            ruta: 'contabilidad/asignarComprobanteUnitarioPorPlanNN',
             tipo: 'post',
             body: payload
         }).pipe(
@@ -227,7 +177,7 @@ export class LiquidacionesPresupuestoService {
         const payload = { ...datos, detalles_ids: detallesIds };
 
         return this.api.query({
-            ruta: 'contabilidad/asignarComprobanteMasivoPorPresupuestoN',
+            ruta: 'contabilidad/asignarComprobanteMasivoPorPlanNN',
             tipo: 'post',
             body: payload
         }).pipe(
@@ -264,7 +214,7 @@ export class LiquidacionesPresupuestoService {
         };
 
         return this.api.query({
-            ruta: 'contabilidad/crearCambioSolicitadoPorPresupuestoN',
+            ruta: 'contabilidad/crearCambioSolicitadoPorPlanNN',
             tipo: 'post',
             body: payload
         }).pipe(
@@ -290,7 +240,7 @@ export class LiquidacionesPresupuestoService {
      */
     obtenerCambiosDetalle(detalleId: number): Observable<CambioSolicitado[]> {
         return this.api.query({
-            ruta: 'contabilidad/obtenerCambiosSolicitadosPorDetalle',
+            ruta: 'contabilidad/obtenerCambiosSolicitadosPorDetallePlanNN',
             tipo: 'post',
             body: { detalle_liquidacion_id: detalleId }
         }).pipe(
@@ -324,11 +274,11 @@ export class LiquidacionesPresupuestoService {
     }
 
     // ============================================================================
-    // SISTEMA DE FILTROS - ACTUALIZADO
+    // SISTEMA DE FILTROS
     // ============================================================================
 
     /**
-     * Aplicar filtros de búsqueda - ACTUALIZADO CON NUEVO SISTEMA
+     * Aplicar filtros de búsqueda
      */
     aplicarFiltros(filtros: Partial<FiltrosLiquidacion>): void {
         const filtrosActuales = this._filtros$.value;
@@ -346,7 +296,7 @@ export class LiquidacionesPresupuestoService {
     }
 
     /**
-     * Aplicar filtros a las liquidaciones - ACTUALIZADO
+     * Aplicar filtros a las liquidaciones
      */
     private _aplicarFiltros(): void {
         const liquidaciones = this._liquidaciones$.value;
@@ -360,40 +310,32 @@ export class LiquidacionesPresupuestoService {
         const liquidacionesFiltradas = liquidaciones.map(liquidacion => {
             // Filtrar detalles dentro de cada factura
             const detallesFiltrados = liquidacion.detalles.filter(detalle => {
-                // FILTRO LOCAL: Filtro por tipo de búsqueda y valor
-                if (filtros.tipoBusqueda && filtros.valorBusqueda) {
-                    const valorBusqueda = filtros.valorBusqueda.toLowerCase();
-
-                    switch (filtros.tipoBusqueda) {
-                        case 'factura':
-                            if (!detalle.numero_factura.toLowerCase().includes(valorBusqueda)) {
-                                return false;
-                            }
-                            break;
-                        case 'orden':
-                            if (!detalle.numero_orden.toString().includes(filtros.valorBusqueda)) {
-                                return false;
-                            }
-                            break;
-                        case 'usuario':
-                            if (!detalle.usuario.toLowerCase().includes(valorBusqueda)) {
-                                return false;
-                            }
-                            break;
-                    }
+                // Filtro por número de factura
+                if (filtros.factura && !detalle.numero_factura.toLowerCase().includes(filtros.factura.toLowerCase())) {
+                    return false;
                 }
 
-                // FILTRO LOCAL: Filtro por método de pago
+                // Filtro por número de orden
+                if (filtros.orden && !detalle.numero_orden.toString().includes(filtros.orden)) {
+                    return false;
+                }
+
+                // Filtro por usuario
+                if (filtros.usuario && !detalle.usuario.toLowerCase().includes(filtros.usuario.toLowerCase())) {
+                    return false;
+                }
+
+                // Filtro por método de pago
                 if (filtros.metodoPago && detalle.forma_pago !== filtros.metodoPago) {
                     return false;
                 }
 
-                // FILTRO LOCAL: Filtro por estado de verificación
+                // Filtro por estado de verificación
                 if (filtros.estadoVerificacion && detalle.estado_verificacion !== filtros.estadoVerificacion) {
                     return false;
                 }
 
-                // FILTRO LOCAL: Filtro por estado de liquidación de la factura
+                // Filtro por estado de liquidación de la factura
                 if (filtros.estadoLiquidacion && liquidacion.factura.estado_liquidacion !== filtros.estadoLiquidacion) {
                     return false;
                 }
@@ -670,10 +612,10 @@ export class LiquidacionesPresupuestoService {
     limpiarEstado(): void {
         this._liquidaciones$.next([]);
         this._liquidacionesFiltradas$.next([]);
-        this._exclusiones$.next([]);  // NUEVO
         this._error$.next(null);
         this._filtros$.next({});
     }
+
     /**
      * Obtener liquidaciones actuales
      */
@@ -696,45 +638,9 @@ export class LiquidacionesPresupuestoService {
     }
 
     /**
-     * Refrescar datos después de cambios - ACTUALIZADO
+     * Refrescar datos después de cambios
      */
-    refrescarDatos(fechaDesde?: string): Observable<boolean> {
-        return this.cargarLiquidaciones(fechaDesde);
-    }
-
-    // ============================================================================
-    // MÉTODOS PARA MANEJAR FECHA EN LOCALSTORAGE
-    // ============================================================================
-
-    /**
-     * Guardar fecha en localStorage
-     */
-    guardarFechaEnStorage(fecha: string): void {
-        if (fecha) {
-            localStorage.setItem(this.FECHA_STORAGE_KEY, fecha);
-        } else {
-            this.eliminarFechaDeStorage();
-        }
-    }
-
-    /**
-     * Obtener fecha guardada en localStorage
-     */
-    obtenerFechaDeStorage(): string | null {
-        return localStorage.getItem(this.FECHA_STORAGE_KEY);
-    }
-
-    /**
-     * Eliminar fecha de localStorage
-     */
-    eliminarFechaDeStorage(): void {
-        localStorage.removeItem(this.FECHA_STORAGE_KEY);
-    }
-
-    /**
-     * Verificar si hay fecha guardada
-     */
-    tieneFechaGuardada(): boolean {
-        return !!this.obtenerFechaDeStorage();
+    refrescarDatos(): Observable<boolean> {
+        return this.cargarLiquidaciones();
     }
 }
