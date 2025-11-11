@@ -1,0 +1,110 @@
+<!-- src/app/modules/transferencias/aprobacion/components/listado-aprobacion/listado-aprobacion.component.html -->
+
+<div class="min-h-screen bg-gray-50 p-4">
+    <div class="mx-auto max-w-7xl">
+
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold text-gray-800">Pendientes de Aprobación</h1>
+                    <p class="text-xs sm:text-sm text-gray-500">Gestión rápida de transferencias</p>
+                </div>
+                <button (click)="refrescarDatos()" [disabled]="cargando()"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium">
+                    <span *ngIf="!cargando()">Actualizar</span>
+                    <span *ngIf="cargando()">Cargando...</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Filtro -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-4">
+            <input type="text" placeholder="Buscar código, factura o banco..."
+                (input)="buscar($any($event.target).value)"
+                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        </div>
+
+        <!-- Cargando -->
+        <div *ngIf="cargando()" class="text-center py-8">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p class="mt-2 text-sm text-gray-600">Cargando...</p>
+        </div>
+
+        <!-- Sin datos -->
+        <div *ngIf="!cargando() && solicitudesFiltradas().length === 0"
+            class="bg-white rounded-lg shadow-sm p-12 text-center">
+            <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Sin pendientes</h3>
+            <p class="text-sm text-gray-500">No hay solicitudes por aprobar</p>
+        </div>
+
+        <!-- Tabla -->
+        <div *ngIf="!cargando() && solicitudesFiltradas().length > 0"
+            class="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Facturas</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Banco</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Monto</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Creado</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <tr *ngFor="let s of solicitudesFiltradas(); trackBy: trackBySolicitud"
+                            class="hover:bg-gray-50 text-xs">
+                            <td class="px-3 py-2 font-medium text-blue-600">{{s.codigo_solicitud}}</td>
+                            <td class="px-3 py-2">
+                                <div>{{s.facturas_numeros.split(',').length}} fact.</div>
+                                <div class="text-[10px] text-gray-500 truncate max-w-28">
+                                    {{s.facturas_numeros.split(',').slice(0,1).join(', ')}}
+                                    <span *ngIf="s.facturas_numeros.split(',').length > 1">...</span>
+                                </div>
+                            </td>
+                            <td class="px-3 py-2 text-gray-900">{{s.banco_nombre}}</td>
+                            <td class="px-3 py-2 font-medium text-gray-900">{{formatMonto(s.monto_total_solicitud)}}
+                            </td>
+                            <td class="px-3 py-2 text-gray-900">{{formatFecha(s.fecha_creacion)}}</td>
+                            <td class="px-3 py-2">
+                                <div class="flex gap-1">
+                                    <!-- OJO: VER DETALLE -->
+                                    <button (click)="verDetalle(s)" title="Ver detalle"
+                                        class="p-1.5 text-gray-600 hover:bg-gray-100 rounded">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </button>
+                                    <!-- APROBAR -->
+                                    <button (click)="aprobarRapido(s)" title="Aprobar"
+                                        class="p-1.5 text-green-600 hover:bg-green-50 rounded">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </button>
+                                    <!-- RECHAZAR -->
+                                    <button (click)="rechazarRapido(s)" title="Rechazar"
+                                        class="p-1.5 text-red-600 hover:bg-red-50 rounded">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>

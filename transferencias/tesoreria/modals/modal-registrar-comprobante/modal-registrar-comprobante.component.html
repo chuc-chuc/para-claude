@@ -1,0 +1,129 @@
+<!-- ============================================================================ -->
+<!-- MODAL REGISTRAR COMPROBANTE -->
+<!-- Archivo: modal-registrar-comprobante.component.html -->
+<!-- ============================================================================ -->
+
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full my-8">
+
+        <!-- Header -->
+        <div class="bg-green-600 text-white p-6 rounded-t-lg">
+            <h2 class="text-2xl font-bold">Registrar Comprobante de Transferencia</h2>
+            <p class="text-sm opacity-90">{{solicitud.codigo_solicitud}}</p>
+        </div>
+
+        <!-- Body -->
+        <form [formGroup]="formulario" (ngSubmit)="onSubmit()" class="p-6">
+
+            <div class="space-y-4">
+
+                <!-- Número de registro -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Número de Registro de Transferencia *
+                    </label>
+                    <input type="text" formControlName="numero_registro_transferencia"
+                        [class.border-red-500]="campoInvalido('numero_registro_transferencia')"
+                        placeholder="REG-2025-001"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                    <p *ngIf="campoInvalido('numero_registro_transferencia')" class="text-red-500 text-xs mt-1">
+                        Este campo es requerido
+                    </p>
+                </div>
+
+                <!-- Fecha de transferencia -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Fecha de Transferencia *
+                    </label>
+                    <input id="fecha_transferencia" type="date" formControlName="fecha_transferencia"
+                        [class.border-red-500]="campoInvalido('fecha_transferencia')"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                    <p *ngIf="campoInvalido('fecha_transferencia')" class="text-red-500 text-xs mt-1">
+                        Este campo es requerido
+                    </p>
+                </div>
+
+                <!-- Referencia bancaria -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Referencia Bancaria
+                        <span class="text-gray-500 font-normal">(Opcional)</span>
+                    </label>
+                    <input type="text" formControlName="referencia_bancaria" placeholder="REF123456"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                </div>
+
+                <!-- Observaciones -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Observaciones
+                        <span class="text-gray-500 font-normal">(Opcional)</span>
+                    </label>
+                    <textarea formControlName="observaciones" rows="3"
+                        placeholder="Escriba observaciones adicionales..."
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none">
+                    </textarea>
+                </div>
+
+                <!-- Archivo -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Comprobante
+                        <span class="text-gray-500 font-normal">(Opcional)</span>
+                    </label>
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                        <div *ngIf="!archivoSeleccionado()" class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            <div class="mt-2">
+                                <label class="cursor-pointer text-blue-600 hover:text-blue-700 font-medium">
+                                    Seleccionar archivo
+                                    <input id="archivo" type="file" accept=".pdf,.jpg,.jpeg,.png"
+                                        (change)="onArchivoSeleccionado($event)" class="hidden">
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">PDF o Imagen (máx. 10 MB)</p>
+                        </div>
+
+                        <div *ngIf="archivoSeleccionado()" class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span class="text-sm font-medium text-gray-900">{{nombreArchivo()}}</span>
+                            </div>
+                            <button type="button" (click)="eliminarArchivo()" class="text-red-600 hover:text-red-700">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div class="flex gap-3 justify-end mt-6 pt-6 border-t">
+                <button type="button" (click)="onCerrar()" [disabled]="cargando()"
+                    class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium disabled:opacity-50">
+                    Cancelar
+                </button>
+                <button type="submit" [disabled]="cargando() || formulario.invalid"
+                    class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50">
+                    <span *ngIf="!cargando()">Registrar y Completar</span>
+                    <span *ngIf="cargando()">Procesando...</span>
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+</div>
