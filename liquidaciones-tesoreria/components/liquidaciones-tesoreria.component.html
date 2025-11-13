@@ -1,0 +1,128 @@
+<!-- ============================================================================ -->
+<!-- LIQUIDACIONES DE TESORERÍA - TEMPLATE PRINCIPAL -->
+<!-- ============================================================================ -->
+
+<div class="min-h-screen bg-gray-50 p-4">
+    <div class="mx-auto">
+
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-xl font-semibold text-gray-800">Transferencias Verificadas</h1>
+                    <p class="text-sm text-gray-500">Gestión de transferencias para tesorería</p>
+                </div>
+                <button (click)="refrescarDatos()" [disabled]="cargando()"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm">
+                    <span *ngIf="!cargando()">Actualizar</span>
+                    <span *ngIf="cargando()">Cargando...</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Estadísticas -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
+            <div class="bg-white rounded-lg shadow-sm p-4">
+                <div class="text-sm text-gray-500">Total Facturas</div>
+                <div class="text-2xl font-semibold text-gray-800">{{estadisticas().totalFacturas}}</div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4">
+                <div class="text-sm text-gray-500">Detalles Transferencia</div>
+                <div class="text-2xl font-semibold text-gray-800">{{estadisticas().totalDetalles}}</div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4">
+                <div class="text-sm text-gray-500">Total Transferencias</div>
+                <div class="text-2xl font-semibold text-green-600">{{formatMonto(estadisticas().totalTransferencias)}}
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4">
+                <div class="text-sm text-gray-500">Total Retenciones</div>
+                <div class="text-2xl font-semibold text-red-600">{{formatMonto(estadisticas().totalRetenciones)}}</div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4">
+                <div class="text-sm text-gray-500">Pendiente Pago</div>
+                <div class="text-2xl font-semibold text-blue-600">{{formatMonto(estadisticas().totalPendiente)}}</div>
+            </div>
+        </div>
+
+        <!-- Indicador de carga -->
+        <div *ngIf="cargando()" class="text-center py-8">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p class="mt-2 text-gray-600">Cargando transferencias...</p>
+        </div>
+
+        <!-- Sin datos -->
+        <div *ngIf="!cargando() && facturas().length === 0" class="bg-white rounded-lg shadow-sm p-12 text-center">
+            <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">No hay transferencias</h3>
+            <p class="text-gray-500">No se encontraron facturas con transferencias verificadas</p>
+        </div>
+
+        <!-- Tabla de facturas -->
+        <div *ngIf="!cargando() && facturas().length > 0" class="bg-white rounded-lg shadow-sm overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Factura</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Emisor</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha Emisión</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Factura</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Transferencias</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Retenciones</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pendiente Pago</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <tr *ngFor="let factura of facturas(); trackBy: trackByFactura" class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm">
+                            <div class="font-medium text-gray-900">{{factura.numero_factura}}</div>
+                            <div class="text-xs text-gray-500">{{factura.tipo_dte}}</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            <div class="text-gray-900">{{truncateText(factura.nombre_emisor, 40)}}</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-900">
+                            {{formatFecha(factura.fecha_emision)}}
+                        </td>
+                        <td class="px-4 py-3 text-sm font-medium text-gray-900">
+                            {{formatMonto(factura.monto_total_factura)}}
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            <div class="font-medium text-green-600">{{formatMonto(factura.monto_total_transferencias)}}
+                            </div>
+                            <div class="text-xs text-gray-500">{{factura.transferencias.length}} detalle(s)</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm font-medium text-red-600">
+                            {{formatMonto(factura.monto_total_retenciones)}}
+                        </td>
+                        <td class="px-4 py-3 text-sm font-semibold text-blue-600">
+                            {{formatMonto(factura.monto_pendiente_pago)}}
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            <div class="flex gap-2">
+                                <button (click)="verDetalleFactura(factura)"
+                                    class="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs">
+                                    Ver Detalle
+                                </button>
+                                <button (click)="solicitarCorreccion(factura)"
+                                    class="px-3 py-1 bg-orange-100 text-orange-700 rounded hover:bg-orange-200 text-xs">
+                                    Solicitar Corrección
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+<!-- Modal -->
+<app-modal-ver-detalle-transferencia *ngIf="mostrarModalDetalle()" [factura]="facturaSeleccionada()"
+    (cerrar)="cerrarModalDetalle()">
+</app-modal-ver-detalle-transferencia>

@@ -1,0 +1,187 @@
+<div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+    <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full my-8">
+
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 rounded-t-xl">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold">Detalle de Solicitud</h2>
+                    <p class="text-sm opacity-90 mt-1" *ngIf="detalle()">
+                        {{detalle()!.solicitud.codigo_solicitud}}
+                    </p>
+                </div>
+                <button (click)="onCerrar()" class="text-white/80 hover:text-white transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="p-6" *ngIf="!cargando() && detalle()">
+
+            <!-- Información General -->
+            <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Información General
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                        <p class="text-gray-500 text-xs mb-1">Estado</p>
+                        <span class="px-3 py-1.5 rounded-full text-xs font-semibold inline-block"
+                            [class]="getColorEstado(detalle()!.solicitud.estado).bg + ' ' + getColorEstado(detalle()!.solicitud.estado).text">
+                            {{getEtiquetaEstado(detalle()!.solicitud.estado)}}
+                        </span>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-xs mb-1">Banco</p>
+                        <p class="font-medium text-gray-900">{{detalle()!.solicitud.banco_nombre}}</p>
+                        <p class="text-xs text-gray-500">{{detalle()!.solicitud.banco_cuenta}}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-xs mb-1">Monto Total</p>
+                        <p class="font-bold text-green-600 text-lg">
+                            {{formatMonto(detalle()!.solicitud.monto_total_solicitud)}}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-xs mb-1">Área de Aprobación</p>
+                        <p class="font-medium text-gray-900">{{getEtiquetaArea(detalle()!.solicitud.area_aprobacion)}}
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-xs mb-1">Fecha de Creación</p>
+                        <p class="font-medium text-gray-900">{{formatFechaHora(detalle()!.solicitud.fecha_creacion)}}
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-xs mb-1">Creado Por</p>
+                        <p class="font-medium text-gray-900">ID: {{detalle()!.solicitud.creado_por}}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Facturas -->
+            <div class="mb-6">
+                <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Facturas ({{detalle()!.facturas_detalle.length}})
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600">Factura</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600">Emisor</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600">Monto</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600">Forma Pago</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <tr *ngFor="let f of detalle()!.facturas_detalle" class="hover:bg-gray-50">
+                                <td class="px-3 py-2 font-medium text-blue-600">{{f.numero_factura}}</td>
+                                <td class="px-3 py-2 text-gray-900">{{f.nombre_emisor}}</td>
+                                <td class="px-3 py-2 font-medium text-gray-900">{{formatMonto(f.monto_total_factura ??
+                                    0)}}</td>
+                                <td class="px-3 py-2 text-gray-700">{{f.forma_pago}}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Aprobación (si existe) -->
+            <div *ngIf="detalle()!.aprobacion" class="bg-blue-50 rounded-lg p-4 mb-6 border-l-4 border-blue-600">
+                <h3 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Aprobación
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <div>
+                        <p class="text-gray-600 text-xs mb-1">Aprobador</p>
+                        <p class="font-medium">{{detalle()!.aprobacion!.puesto_aprobador}}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600 text-xs mb-1">Fecha</p>
+                        <p class="font-medium">{{formatFechaHora(detalle()!.aprobacion!.fecha_aprobacion)}}</p>
+                    </div>
+                    <div class="col-span-2" *ngIf="detalle()!.aprobacion!.comentario">
+                        <p class="text-gray-600 text-xs mb-1">Comentario</p>
+                        <p class="text-gray-800 bg-white rounded p-2">{{detalle()!.aprobacion!.comentario}}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Archivos -->
+            <div *ngIf="detalle()!.archivos.length > 0" class="mb-6">
+                <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    </svg>
+                    Archivos ({{detalle()!.archivos.length}})
+                </h3>
+                <div class="space-y-2">
+                    <div *ngFor="let a of detalle()!.archivos"
+                        class="flex items-center justify-between bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-all">
+                        <div class="flex items-center gap-3">
+                            <div class="flex-shrink-0">
+                                <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-900">{{a.nombre_original}}</p>
+                                <p class="text-xs text-gray-500">{{formatTamano(a.tamano_bytes)}} •
+                                    {{formatFecha(a.fecha_subida)}}</p>
+                            </div>
+                        </div>
+                        <button (click)="verArchivo(a.drive_id)"
+                            class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-all flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            Ver
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Loading -->
+        <div *ngIf="cargando()" class="p-12 text-center">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent">
+            </div>
+            <p class="mt-4 text-sm text-gray-600">Cargando detalle...</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-gray-50 px-6 py-4 rounded-b-xl border-t flex justify-end">
+            <button (click)="onCerrar()"
+                class="w-full sm:w-auto px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium transition-all">
+                Cerrar
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<!-- Modal Preview -->
+<app-preview-justificacion-modal *ngIf="mostrarPreview()" [isVisible]="mostrarPreview()" [driveId]="driveIdPreview()"
+    (cerrar)="cerrarPreview()">
+</app-preview-justificacion-modal>
