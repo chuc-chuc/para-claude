@@ -343,6 +343,132 @@ export class LiquidacionesModuloTesoreriaService {
         );
     }
 
+    /**
+ * Lista solicitudes pendientes de aprobación para el área del usuario actual
+ * 
+ * @returns Observable<any> Respuesta con solicitudes pendientes
+ * 
+ * @example
+ * this.service.listarSolicitudesPendientesAprobacion().subscribe(
+ *   response => {
+ *     if (response.respuesta === 'success') {
+ *       const solicitudes = response.datos.solicitudes;
+ *     }
+ *   }
+ * );
+ */
+    listarSolicitudesPendientesAprobacion(): Observable<any> {
+        return this.api.query({
+            ruta: 'tesoreria/listarSolicitudesPendientesAprobacion',
+            tipo: 'post',
+            body: {}
+        }).pipe(
+            catchError((error) => {
+                console.error('Error al listar solicitudes pendientes:', error);
+                this.api.mensajeServidor('error', 'Error al cargar solicitudes pendientes de aprobación');
+                return of({ respuesta: 'error', mensajes: ['Error al cargar solicitudes'], datos: null });
+            })
+        );
+    }
+
+    /**
+     * Obtiene detalle completo de una solicitud con sus facturas
+     * 
+     * @param payload Datos de la solicitud
+     * @returns Observable<any> Respuesta con detalle completo
+     * 
+     * @example
+     * this.service.obtenerDetalleSolicitudTransferencia({ solicitud_id: 1 }).subscribe(
+     *   response => {
+     *     if (response.respuesta === 'success') {
+     *       const detalle = response.datos;
+     *       console.log(detalle.solicitud);
+     *       console.log(detalle.facturas_detalle);
+     *     }
+     *   }
+     * );
+     */
+    obtenerDetalleSolicitudTransferencia(payload: { solicitud_id: number }): Observable<any> {
+        return this.api.query({
+            ruta: 'tesoreria/obtenerDetalleSolicitudTransferencia',
+            tipo: 'post',
+            body: payload
+        }).pipe(
+            catchError((error) => {
+                console.error('Error al obtener detalle de solicitud:', error);
+                this.api.mensajeServidor('error', 'Error al cargar detalle de la solicitud');
+                return of({ respuesta: 'error', mensajes: ['Error al cargar detalle'], datos: null });
+            })
+        );
+    }
+
+    /**
+     * Aprueba una solicitud de transferencia
+     * 
+     * @param solicitudId ID de la solicitud
+     * @param comentario Comentario opcional de aprobación
+     * @returns Observable<boolean> true si la operación fue exitosa
+     * 
+     * @example
+     * this.service.aprobarSolicitudTransferencia(1, 'Aprobado correctamente').subscribe(
+     *   exito => {
+     *     if (exito) {
+     *       // Solicitud aprobada
+     *       this.refrescarDatos();
+     *     }
+     *   }
+     * );
+     */
+    aprobarSolicitudTransferencia(solicitudId: number, comentario?: string): Observable<boolean> {
+        const payload = {
+            solicitud_id: solicitudId,
+            comentario: comentario || null
+        };
+
+        return this._ejecutarAccion(
+            'tesoreria/aprobarSolicitudTransferencia',
+            payload,
+            MENSAJES_TESORERIA.EXITO.APROBAR_SOLICITUD,
+            MENSAJES_TESORERIA.ERROR.APROBAR_SOLICITUD
+        );
+    }
+
+    /**
+     * Rechaza una solicitud de transferencia
+     * 
+     * @param solicitudId ID de la solicitud
+     * @param comentario Motivo del rechazo (requerido)
+     * @returns Observable<boolean> true si la operación fue exitosa
+     * 
+     * @example
+     * this.service.rechazarSolicitudTransferencia(1, 'Datos incorrectos').subscribe(
+     *   exito => {
+     *     if (exito) {
+     *       // Solicitud rechazada
+     *       this.refrescarDatos();
+     *     }
+     *   }
+     * );
+     */
+    rechazarSolicitudTransferencia(solicitudId: number, comentario: string): Observable<boolean> {
+        if (!comentario || comentario.trim() === '') {
+            this.api.mensajeServidor('error', 'El comentario es requerido para rechazar');
+            return of(false);
+        }
+
+        const payload = {
+            solicitud_id: solicitudId,
+            comentario: comentario
+        };
+
+        return this._ejecutarAccion(
+            'tesoreria/rechazarSolicitudTransferencia',
+            payload,
+            MENSAJES_TESORERIA.EXITO.RECHAZAR_SOLICITUD,
+            MENSAJES_TESORERIA.ERROR.RECHAZAR_SOLICITUD
+        );
+    }
+
     // ============================================================================
     // MÉTODOS AUXILIARES PRIVADOS
     // ============================================================================

@@ -22,15 +22,15 @@ import {
     ValidadoresLiquidacion,
     MENSAJES_TESORERIA,
     OPCIONES_TIPO_LIQUIDACION
-} from '../models/liquidaciones-modulo-tesoreria.models';
+} from '../../models/liquidaciones-modulo-tesoreria.models';
 
-import { LiquidacionesModuloTesoreriaService } from '../services/liquidaciones-modulo-tesoreria.service';
+import { LiquidacionesModuloTesoreriaService } from '../../services/liquidaciones-modulo-tesoreria.service';
 
 // Modales (importar cuando se creen)
-// import { ModalVerDetalleFacturaComponent } from '../modals/modal-ver-detalle-factura/modal-ver-detalle-factura.component';
-// import { ModalCrearSolicitudComponent } from '../modals/modal-crear-solicitud/modal-crear-solicitud.component';
-// import { ModalRegistrarComprobanteComponent } from '../modals/modal-registrar-comprobante/modal-registrar-comprobante.component';
-// import { ModalSolicitarCorreccionComponent } from '../modals/modal-solicitar-correccion/modal-solicitar-correccion.component';
+import { ModalVerDetalleFacturaComponent } from '../../modals/modal-ver-detalle-factura/modal-ver-detalle-factura.component';
+import { ModalCrearSolicitudComponent } from '../../modals/modal-crear-solicitud/modal-crear-solicitud.component';
+import { ModalRegistrarComprobanteComponent } from '../../modals/modal-registrar-comprobante/modal-registrar-comprobante.component';
+//import { ModalSolicitarCorreccionComponent } from '../modals/modal-solicitar-correccion/modal-solicitar-correccion.component';
 
 @Component({
     selector: 'app-liquidaciones-modulo-tesoreria',
@@ -39,9 +39,9 @@ import { LiquidacionesModuloTesoreriaService } from '../services/liquidaciones-m
         CommonModule,
         LucideAngularModule,
         // Modales (descomentar cuando se creen)
-        // ModalVerDetalleFacturaComponent,
-        // ModalCrearSolicitudComponent,
-        // ModalRegistrarComprobanteComponent,
+        ModalVerDetalleFacturaComponent,
+        ModalCrearSolicitudComponent,
+        ModalRegistrarComprobanteComponent,
         // ModalSolicitarCorreccionComponent
     ],
     templateUrl: './liquidaciones-modulo-tesoreria.component.html',

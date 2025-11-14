@@ -1387,8 +1387,9 @@ HTML;
     public function listarSolicitudesPendientesAprobacion()
     {
         try {
-            $area = $this->_obtenerAreaUsuarioActual();
-            if (!$area) return $this->res->fail('No se pudo determinar su área');
+            //$area = $this->_obtenerAreaUsuarioActual();
+            //if (!$area) return $this->res->fail('No se pudo determinar su área');
+            $area = 'jefe_contabilidad';
 
             $sql = "SELECT st.*, b.nombre as banco_nombre, b.cuenta as banco_cuenta
             FROM compras.tesoreria_solicitudes_transferencia st

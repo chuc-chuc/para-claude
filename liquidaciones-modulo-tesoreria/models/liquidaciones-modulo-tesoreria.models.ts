@@ -378,7 +378,9 @@ export const MENSAJES_TESORERIA = {
         EDITAR_SOLICITUD: 'Solicitud actualizada correctamente',
         REGISTRAR_COMPROBANTE: 'Comprobante registrado y solicitud completada',
         SOLICITAR_CORRECCION: 'Corrección solicitada correctamente',
-        CANCELAR_SOLICITUD: 'Solicitud cancelada correctamente'
+        CANCELAR_SOLICITUD: 'Solicitud cancelada correctamente',
+        APROBAR_SOLICITUD: 'Solicitud aprobada correctamente',
+        RECHAZAR_SOLICITUD: 'Solicitud rechazada correctamente',
     },
     ERROR: {
         CARGAR_FACTURAS: 'Error al cargar facturas',
@@ -386,7 +388,9 @@ export const MENSAJES_TESORERIA = {
         EDITAR_SOLICITUD: 'Error al editar solicitud',
         REGISTRAR_COMPROBANTE: 'Error al registrar comprobante',
         SOLICITAR_CORRECCION: 'Error al solicitar corrección',
-        CANCELAR_SOLICITUD: 'Error al cancelar solicitud'
+        CANCELAR_SOLICITUD: 'Error al cancelar solicitud',
+        APROBAR_SOLICITUD: 'Error al aprobar la solicitud',
+        RECHAZAR_SOLICITUD: 'Error al rechazar la solicitud',
     },
     CONFIRMACION: {
         CREAR_SOLICITUD: '¿Confirma que desea crear esta solicitud de transferencia?',

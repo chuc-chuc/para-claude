@@ -582,24 +582,22 @@
 <!-- ================================================================ -->
 
 <!-- Modal: Ver Detalle de Factura -->
-<!-- <app-modal-ver-detalle-factura
+<app-modal-ver-detalle-factura
     *ngIf="mostrarModalDetalle()"
     [factura]="facturaSeleccionada()"
     (cerrar)="cerrarModalDetalle()">
-</app-modal-ver-detalle-factura> -->
+</app-modal-ver-detalle-factura> 
 
 <!-- Modal: Crear Solicitud -->
-<!-- <app-modal-crear-solicitud
+<app-modal-crear-solicitud
     *ngIf="mostrarModalCrear()"
     [factura]="facturaSeleccionada()"
     (cerrar)="cerrarModalCrear()"
     (confirmado)="onSolicitudCreada()">
-</app-modal-crear-solicitud> -->
+</app-modal-crear-solicitud>
 
 <!-- Modal: Registrar Comprobante -->
-<!-- <app-modal-registrar-comprobante
-    *ngIf="mostrarModalComprobante()"
-    [solicitud]="facturaSeleccionada()?.solicitud"
-    (cerrar)="cerrarModalComprobante()"
+<app-modal-registrar-comprobante *ngIf="mostrarModalComprobante()"
+    [solicitud]="facturaSeleccionada()?.solicitud ?? null" (cerrar)="cerrarModalComprobante()"
     (confirmado)="onComprobanteRegistrado()">
-</app-modal-registrar-comprobante> -->
+</app-modal-registrar-comprobante>

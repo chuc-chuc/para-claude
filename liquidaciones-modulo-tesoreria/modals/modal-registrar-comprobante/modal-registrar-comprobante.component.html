@@ -1,0 +1,185 @@
+<!-- ============================================================================ -->
+<!-- MODAL: REGISTRAR COMPROBANTE DE TRANSFERENCIA -->
+<!-- ============================================================================ -->
+
+<div *ngIf="solicitud" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+    (click)="onCerrar()">
+
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
+        (click)="onClickModal($event)">
+
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <lucide-icon [img]="CheckCircle" class="w-6 h-6 text-white"></lucide-icon>
+                <h2 class="text-xl font-bold text-white">Registrar Comprobante de Transferencia</h2>
+            </div>
+            <button (click)="onCerrar()" [disabled]="procesando()"
+                class="text-white hover:bg-white/20 rounded-lg p-2 transition-all disabled:opacity-50">
+                <lucide-icon [img]="X" class="w-5 h-5"></lucide-icon>
+            </button>
+        </div>
+
+        <!-- Contenido con scroll -->
+        <div class="overflow-y-auto max-h-[calc(90vh-180px)] p-6">
+
+            <!-- ========== INFORMACIÓN DE LA SOLICITUD ========== -->
+            <div class="bg-blue-50 rounded-lg p-5 mb-6 border border-blue-200">
+                <h3 class="text-sm font-bold text-blue-900 mb-3 uppercase tracking-wide">Solicitud Aprobada</h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <p class="text-xs font-medium text-gray-500 mb-1">Código de Solicitud</p>
+                        <p class="text-base font-mono font-bold text-blue-900">{{solicitud.codigo_solicitud}}</p>
+                    </div>
+
+                    <div>
+                        <p class="text-xs font-medium text-gray-500 mb-1">Monto Aprobado</p>
+                        <p class="text-lg font-bold text-green-600">{{formatMonto(solicitud.monto_total_solicitud)}}</p>
+                    </div>
+
+                    <div>
+                        <p class="text-xs font-medium text-gray-500 mb-1">Banco Origen</p>
+                        <p class="text-sm font-semibold text-gray-900">{{solicitud.banco_nombre}}</p>
+                        <p class="text-xs text-gray-600">{{solicitud.banco_cuenta}}</p>
+                    </div>
+
+                    <div>
+                        <p class="text-xs font-medium text-gray-500 mb-1">Aprobado Por</p>
+                        <p class="text-sm font-semibold text-gray-700">{{getEtiquetaArea(solicitud.area_aprobacion)}}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========== FORMULARIO ========== -->
+            <form [formGroup]="form" class="space-y-5">
+
+                <!-- Número de Registro -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Número de Registro de Transferencia *
+                    </label>
+                    <input type="text" formControlName="numero_registro_transferencia" placeholder="Ej: REG-2025-0001"
+                        class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                        [class.border-red-300]="form.get('numero_registro_transferencia')?.invalid && form.get('numero_registro_transferencia')?.touched"
+                        [class.border-gray-200]="!form.get('numero_registro_transferencia')?.invalid || !form.get('numero_registro_transferencia')?.touched">
+                    <p *ngIf="form.get('numero_registro_transferencia')?.invalid && form.get('numero_registro_transferencia')?.touched"
+                        class="mt-1 text-xs text-red-600">
+                        {{obtenerErrorCampo('numero_registro_transferencia')}}
+                    </p>
+                </div>
+
+                <!-- Fecha de Transferencia -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Fecha de Transferencia *
+                    </label>
+                    <input type="date" formControlName="fecha_transferencia"
+                        class="w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                        [class.border-red-300]="form.get('fecha_transferencia')?.invalid && form.get('fecha_transferencia')?.touched"
+                        [class.border-gray-200]="!form.get('fecha_transferencia')?.invalid || !form.get('fecha_transferencia')?.touched">
+                    <p *ngIf="form.get('fecha_transferencia')?.invalid && form.get('fecha_transferencia')?.touched"
+                        class="mt-1 text-xs text-red-600">
+                        {{obtenerErrorCampo('fecha_transferencia')}}
+                    </p>
+                </div>
+
+                <!-- Referencia Bancaria -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Referencia Bancaria (Opcional)
+                    </label>
+                    <input type="text" formControlName="referencia_bancaria" placeholder="Ej: REF123456789"
+                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all">
+                    <p class="mt-1 text-xs text-gray-500">
+                        Número de referencia proporcionado por el banco
+                    </p>
+                </div>
+
+                <!-- Observaciones -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Observaciones (Opcional)
+                    </label>
+                    <textarea formControlName="observaciones" rows="3"
+                        placeholder="Observaciones adicionales sobre la transferencia..."
+                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none"></textarea>
+                </div>
+
+                <!-- Archivo Comprobante -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Archivo Comprobante (Opcional)
+                    </label>
+
+                    <!-- Botón para seleccionar archivo -->
+                    <div *ngIf="!tieneArchivo()"
+                        class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-green-500 transition-all">
+                        <lucide-icon [img]="Upload" class="w-12 h-12 text-gray-400 mx-auto mb-3"></lucide-icon>
+                        <p class="text-sm text-gray-600 mb-2">Seleccione un archivo PDF o imagen</p>
+                        <label for="archivo-comprobante"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-all">
+                            <lucide-icon [img]="FileText" class="w-4 h-4"></lucide-icon>
+                            Elegir Archivo
+                        </label>
+                        <input type="file" id="archivo-comprobante"
+                            accept="application/pdf,image/jpeg,image/png,image/jpg"
+                            (change)="onArchivoSeleccionado($event)" class="hidden">
+                        <p class="text-xs text-gray-500 mt-2">PDF, JPG o PNG - Máximo 10MB</p>
+                    </div>
+
+                    <!-- Archivo seleccionado -->
+                    <div *ngIf="tieneArchivo()" class="bg-green-50 border-2 border-green-200 rounded-lg p-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <lucide-icon [img]="FileText" class="w-8 h-8 text-green-600"></lucide-icon>
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-900">{{archivoSeleccionado()!.name}}</p>
+                                    <p class="text-xs text-gray-600">{{formatTamano(archivoSeleccionado()!.size)}}</p>
+                                </div>
+                            </div>
+                            <button type="button" (click)="removerArchivo()"
+                                class="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-all">
+                                <lucide-icon [img]="X" class="w-5 h-5"></lucide-icon>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información Importante -->
+                <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-r-lg">
+                    <div class="flex items-start gap-3">
+                        <lucide-icon [img]="AlertCircle"
+                            class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5"></lucide-icon>
+                        <div class="text-sm text-yellow-800">
+                            <p class="font-semibold mb-1">Al registrar el comprobante:</p>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>La solicitud se marcará como COMPLETADA</li>
+                                <li>Se actualizarán los detalles de liquidación correspondientes</li>
+                                <li>Se enviará una notificación por correo</li>
+                                <li>La factura pasará al estado "Completadas"</li>
+                                <li>Esta acción NO puede deshacerse</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+            <button (click)="onCerrar()" [disabled]="procesando()"
+                class="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium transition-all disabled:opacity-50">
+                Cancelar
+            </button>
+
+            <button (click)="onRegistrarComprobante()" [disabled]="!formularioValido() || procesando()"
+                class="inline-flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                <lucide-icon [img]="CheckCircle" class="w-5 h-5"></lucide-icon>
+                <span *ngIf="!procesando()">Registrar Comprobante</span>
+                <span *ngIf="procesando()">Procesando...</span>
+            </button>
+        </div>
+    </div>
+</div>
