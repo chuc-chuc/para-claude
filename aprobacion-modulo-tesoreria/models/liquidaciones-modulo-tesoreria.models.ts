@@ -8,6 +8,8 @@
  * ============================================================================
  */
 
+
+
 /**
  * Tipo de liquidación
  */
@@ -98,6 +100,8 @@ export interface SolicitudTransferencia {
     actualizado_por?: number;
     fecha_actualizacion?: string;
     
+    creado_por_nombre?: string;
+    creado_por_puesto?: string;
 }
 
 /**
@@ -198,8 +202,29 @@ export interface AprobacionTransferencia {
     accion: 'aprobado' | 'rechazado';
     comentario?: string;
     fecha_aprobacion: string;
+
+    aprobador_nombre?: string;
+    aprobador_puesto?: string;
 }
 
+export interface FacturaDetalleAPI {
+    numero_factura: string;
+    tipo_dte: string;
+    fecha_emision: string;
+    nombre_emisor: string;
+    nit_emisor: string;
+    monto_total_factura: number;
+    monto_pendiente_pago: number;
+    tipo_liquidacion: TipoLiquidacion;
+    tipo_orden: number;
+    primer_detalle_id: number;
+
+    // Estos campos vienen del backend en el detalle
+    transferencias?: DetalleTransferencia[];
+    retenciones?: RetencionFactura[];
+    monto_total_transferencias?: number;
+    monto_total_retenciones?: number;
+}
 /**
  * Detalle completo de solicitud (para modal)
  */
@@ -671,6 +696,8 @@ export interface PropsModalSolicitarCorreccion {
     onCerrar: () => void;
     onConfirmar: () => void;
 }
+
+
 
 /**
  * ============================================================================
