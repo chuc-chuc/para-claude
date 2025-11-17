@@ -8,19 +8,14 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, signal, computed, OnDestroy } from '@angular/core';
 import { Subject, takeUntil } from 'rxjs';
-import Swal from 'sweetalert2';
-// Al inicio, agrega los imports que faltan
-import { FormsModule } from '@angular/forms'; // ← para ngModel si lo usas en modales hijos
+import { FormsModule } from '@angular/forms';
 
 // Lucide Icons
-import { LucideAngularModule, Eye, CheckCircle, XCircle, RefreshCw, AlertCircle, FileText, Clock } from 'lucide-angular';
+import { LucideAngularModule, CheckCircle, XCircle, RefreshCw, AlertCircle, FileText } from 'lucide-angular';
 
 import {
     SolicitudTransferencia,
-    FacturaConSolicitud,
-    TipoLiquidacion,
-    FormatHelper,
-    MENSAJES_TESORERIA
+    FormatHelper
 } from '../../models/liquidaciones-modulo-tesoreria.models';
 
 import { LiquidacionesModuloTesoreriaService } from '../../services/liquidaciones-modulo-tesoreria.service';
@@ -28,36 +23,6 @@ import { LiquidacionesModuloTesoreriaService } from '../../services/liquidacione
 // Modales
 import { ModalAprobarRechazarSolicitudComponent } from '../../modals/modal-aprobar-rechazar-solicitud/modal-aprobar-rechazar-solicitud.component';
 import { ModalDetalleSolicitudAprobacionComponent } from '../../modals/modal-detalle-solicitud-aprobacion/modal-detalle-solicitud-aprobacion.component';
-
-
-/**
- * Interface para solicitud recibida del API
- */
-interface SolicitudPendienteAPI {
-    id: number;
-    codigo_solicitud: string;
-    banco_nombre: string;
-    banco_cuenta: string;
-    monto_total_solicitud: number;
-    fecha_creacion: string;
-    area_aprobacion: string;
-}
-
-/**
- * Interface para factura recibida del API en detalle
- */
-interface FacturaDetalleAPI {
-    numero_factura: string;
-    tipo_dte: string;
-    fecha_emision: string;
-    nombre_emisor: string;
-    nit_emisor: string;
-    monto_total_factura: number;
-    monto_pendiente_pago: number;
-    tipo_liquidacion: TipoLiquidacion;
-    tipo_orden: number;
-    primer_detalle_id: number;
-}
 
 @Component({
     selector: 'app-aprobaciones-transferencias',
@@ -76,19 +41,15 @@ export class AprobacionesTransferenciasComponent implements OnInit, OnDestroy {
 
     readonly service = inject(LiquidacionesModuloTesoreriaService);
     private readonly destroy$ = new Subject<void>();
-    readonly mostrarModalDetalle = signal<boolean>(false);
-    readonly solicitudIdSeleccionada = signal<number | null>(null);
 
     // ============================================================================
     // ICONOS
     // ============================================================================
-    readonly Eye = Eye;
     readonly CheckCircle = CheckCircle;
     readonly XCircle = XCircle;
     readonly RefreshCw = RefreshCw;
     readonly AlertCircle = AlertCircle;
     readonly FileText = FileText;
-    readonly Clock = Clock;
 
     // ============================================================================
     // ESTADO
@@ -100,7 +61,8 @@ export class AprobacionesTransferenciasComponent implements OnInit, OnDestroy {
 
     // Modales
     readonly mostrarModalAprobacion = signal<boolean>(false);
-    readonly facturaSeleccionada = signal<FacturaConSolicitud | null>(null);
+    readonly mostrarModalDetalle = signal<boolean>(false);
+    readonly solicitudIdSeleccionada = signal<number | null>(null);
     readonly accionModal = signal<'aprobar' | 'rechazar'>('aprobar');
 
     // ============================================================================
@@ -108,13 +70,6 @@ export class AprobacionesTransferenciasComponent implements OnInit, OnDestroy {
     // ============================================================================
     readonly formatMonto = FormatHelper.formatMonto;
     readonly formatFecha = FormatHelper.formatFecha;
-    readonly formatFechaHora = FormatHelper.formatFechaHora;
-    readonly truncateText = FormatHelper.truncateText;
-    readonly getEtiquetaTipo = FormatHelper.getEtiquetaTipo;
-    readonly getColorTipo = FormatHelper.getColorTipo;
-    readonly getEtiquetaEstado = FormatHelper.getEtiquetaEstadoSolicitud;
-    readonly getColorEstado = FormatHelper.getColorEstadoSolicitud;
-    readonly getEtiquetaArea = FormatHelper.getEtiquetaArea;
 
     // ============================================================================
     // COMPUTED
@@ -149,15 +104,15 @@ export class AprobacionesTransferenciasComponent implements OnInit, OnDestroy {
                     const solicitudes: SolicitudTransferencia[] = (response.datos.solicitudes || []).map((s: any) => ({
                         id: s.id,
                         codigo_solicitud: s.codigo_solicitud,
-                        banco_origen_id: 0,                   // valor dummy, no se usa en este módulo
+                        tipo_solicitud: s.tipo_solicitud || 'presupuesto',
+                        banco_origen_id: 0,
                         banco_nombre: s.banco_nombre,
                         banco_cuenta: s.banco_cuenta,
                         monto_total_solicitud: s.monto_total_solicitud,
                         area_aprobacion: s.area_aprobacion,
                         estado: 'pendiente_aprobacion' as const,
                         fecha_creacion: s.fecha_creacion,
-                        creado_por: 0,                        // dummy
-                        // campos opcionales que sí pueden venir
+                        creado_por: 0,
                         creado_por_nombre: s.creado_por_nombre ?? null,
                         creado_por_puesto: s.creado_por_puesto ?? null,
                     } as SolicitudTransferencia));
@@ -184,13 +139,6 @@ export class AprobacionesTransferenciasComponent implements OnInit, OnDestroy {
     // ACCIONES DE SOLICITUD
     // ============================================================================
 
-
-    cerrarModalDetalle(): void {
-        this.mostrarModalDetalle.set(false);
-        this.solicitudIdSeleccionada.set(null);
-    }
- 
-
     verDetalleSolicitud(solicitud: SolicitudTransferencia): void {
         this.solicitudIdSeleccionada.set(solicitud.id);
         this.mostrarModalDetalle.set(true);
@@ -216,6 +164,10 @@ export class AprobacionesTransferenciasComponent implements OnInit, OnDestroy {
         this.solicitudSeleccionada.set(null);
     }
 
+    cerrarModalDetalle(): void {
+        this.mostrarModalDetalle.set(false);
+        this.solicitudIdSeleccionada.set(null);
+    }
 
     onAccionCompletada(): void {
         this.cerrarModalAprobacion();

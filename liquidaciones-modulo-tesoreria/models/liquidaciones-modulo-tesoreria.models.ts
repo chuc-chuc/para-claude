@@ -83,7 +83,7 @@ export interface RetencionFactura {
 export interface SolicitudTransferencia {
     id: number;
     codigo_solicitud: string;
-    tipo_solicitud: TipoLiquidacion;
+    tipo_solicitud: TipoLiquidacion; // ← NUEVO CAMPO
     banco_origen_id: number;
     banco_nombre?: string;
     banco_cuenta?: string;
@@ -98,14 +98,14 @@ export interface SolicitudTransferencia {
     fecha_creacion: string;
     actualizado_por?: number;
     fecha_actualizacion?: string;
-    creado_por_nombre?: string;
-    creado_por_puesto?: string;
 }
 
 /**
- * Factura con toda su información y solicitud asociada
+ * Factura con toda su información y solicitud asociada (si existe)
+ * Esta es la entidad principal que maneja el frontend
  */
 export interface FacturaConSolicitud {
+    // ===== DATOS DE LA FACTURA =====
     numero_factura: string;
     nombre_emisor: string;
     tipo_dte: string;
@@ -114,13 +114,50 @@ export interface FacturaConSolicitud {
     estado_liquidacion: string;
     tipo_liquidacion: TipoLiquidacion;
     tipo_orden: TipoOrden;
+
+    // ===== TRANSFERENCIAS =====
     transferencias: DetalleTransferencia[];
+
+    // ===== RETENCIONES =====
     retenciones: RetencionFactura[];
+
+    // ===== CÁLCULOS =====
     monto_total_transferencias: number;
     monto_total_retenciones: number;
     monto_pendiente_pago: number;
     primer_detalle_id: number;
+
+    // ===== SOLICITUD (si existe) =====
     solicitud: SolicitudTransferencia | null;
+}
+
+/**
+ * Resumen estadístico
+ */
+export interface ResumenEstadisticas {
+    // Por estado de solicitud
+    sin_solicitud: { cantidad: number; monto: number };
+    pendiente_aprobacion: { cantidad: number; monto: number };
+    aprobado: { cantidad: number; monto: number };
+    completado: { cantidad: number; monto: number };
+    rechazado: { cantidad: number; monto: number };
+    cancelado: { cantidad: number; monto: number };
+
+    // Por tipo de liquidación
+    plan: { cantidad: number; monto: number };
+    presupuesto: { cantidad: number; monto: number };
+
+    // Totales
+    total_facturas: number;
+    monto_total: number;
+}
+
+/**
+ * Respuesta del endpoint principal
+ */
+export interface RespuestaFacturasConSolicitudes {
+    facturas: FacturaConSolicitud[];
+    resumen: ResumenEstadisticas;
 }
 
 /**
@@ -134,67 +171,6 @@ export interface BancoUsoPago {
 }
 
 /**
- * Archivo adjunto
- */
-export interface ArchivoTransferencia {
-    id: number;
-    solicitud_transferencia_id: number;
-    drive_id: string;
-    nombre_original: string;
-    nombre_en_drive: string;
-    tipo_mime: string;
-    tamano_bytes: number;
-    subido_por: number;
-    fecha_subida: string;
-    viewer_url?: string;
-}
-
-/**
- * Aprobación/Rechazo de solicitud
- */
-export interface AprobacionTransferencia {
-    id: number;
-    solicitud_transferencia_id: number;
-    aprobador_id: number;
-    aprobador_nombre?: string;
-    puesto_aprobador: string;
-    area_aprobador: AreaAprobacion;
-    accion: 'aprobado' | 'rechazado';
-    comentario?: string;
-    fecha_aprobacion: string;
-}
-
-/**
- * Factura detalle para modal de aprobación
- */
-export interface FacturaDetalleAPI {
-    numero_factura: string;
-    tipo_dte: string;
-    fecha_emision: string;
-    nombre_emisor: string;
-    nit_emisor: string;
-    monto_total_factura: number;
-    monto_pendiente_pago: number;
-    tipo_liquidacion: TipoLiquidacion;
-    tipo_orden: number;
-    primer_detalle_id: number;
-    transferencias?: DetalleTransferencia[];
-    retenciones?: RetencionFactura[];
-    monto_total_transferencias?: number;
-    monto_total_retenciones?: number;
-}
-
-/**
- * Detalle completo de solicitud (para modal)
- */
-export interface DetalleSolicitudCompleto {
-    solicitud: SolicitudTransferencia;
-    facturas_detalle: FacturaDetalleAPI[];
-    aprobacion?: AprobacionTransferencia;
-    archivos: ArchivoTransferencia[];
-}
-
-/**
  * ============================================================================
  * PAYLOADS PARA EL API
  * ============================================================================
@@ -204,7 +180,7 @@ export interface DetalleSolicitudCompleto {
  * Payload para obtener facturas con solicitudes
  */
 export interface ObtenerFacturasPayload {
-    tipo_orden?: TipoOrden | null;
+    tipo_orden?: TipoOrden | null; // 1 = Plan, 2 = Presupuesto, null = ambos
 }
 
 /**
@@ -215,7 +191,7 @@ export interface CrearSolicitudTransferenciaPayload {
         numero_factura: string;
         detalle_liquidacion_id: number;
     }[];
-    tipo_solicitud: TipoLiquidacion;
+    tipo_solicitud: TipoLiquidacion; // ← NUEVO CAMPO
     banco_origen_id: number;
     area_aprobacion: AreaAprobacion;
     monto_total_solicitud: number;
@@ -226,7 +202,7 @@ export interface CrearSolicitudTransferenciaPayload {
  */
 export interface EditarSolicitudTransferenciaPayload {
     solicitud_id: number;
-    tipo_solicitud?: TipoLiquidacion;
+    tipo_solicitud?: TipoLiquidacion; // ← NUEVO CAMPO
     facturas?: {
         numero_factura: string;
         detalle_liquidacion_id: number;
@@ -340,8 +316,6 @@ export const MENSAJES_TESORERIA = {
         REGISTRAR_COMPROBANTE: 'Comprobante registrado y solicitud completada',
         EDITAR_COMPROBANTE: 'Comprobante actualizado correctamente',
         CANCELAR_SOLICITUD: 'Solicitud cancelada correctamente',
-        APROBAR_SOLICITUD: 'Solicitud aprobada correctamente',
-        RECHAZAR_SOLICITUD: 'Solicitud rechazada correctamente',
     },
     ERROR: {
         CARGAR_FACTURAS: 'Error al cargar facturas',
@@ -350,8 +324,6 @@ export const MENSAJES_TESORERIA = {
         REGISTRAR_COMPROBANTE: 'Error al registrar comprobante',
         EDITAR_COMPROBANTE: 'Error al editar comprobante',
         CANCELAR_SOLICITUD: 'Error al cancelar solicitud',
-        APROBAR_SOLICITUD: 'Error al aprobar la solicitud',
-        RECHAZAR_SOLICITUD: 'Error al rechazar la solicitud',
     }
 } as const;
 
@@ -384,21 +356,6 @@ export class FormatHelper {
             year: 'numeric',
             month: '2-digit',
             day: '2-digit'
-        });
-    }
-
-    /**
-     * Formatea fecha y hora (ISO -> DD/MM/YYYY HH:mm)
-     */
-    static formatFechaHora(fecha: string | Date): string {
-        if (!fecha) return '-';
-        const date = typeof fecha === 'string' ? new Date(fecha) : fecha;
-        return date.toLocaleString('es-GT', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
         });
     }
 
